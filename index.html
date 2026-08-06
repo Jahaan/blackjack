@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Blackjack expected-value dashboard: 6 decks, dealer hits soft 17, surrender and double-after-split allowed. Perfect-play EV heatmap for every starting hand vs dealer up card, with a Hi-Lo true-count adjustment.">
+<meta name="description" content="Blackjack expected-value dashboard: 6 decks, dealer hits soft 17, surrender and double-after-split allowed. Perfect-play EV heatmap for every starting hand vs dealer up card, with a Hi-Lo true-count adjustment and basic-strategy deviation highlighting.">
 <title>Blackjack Odds — 6 Deck, H17</title>
 <style>
   :root {
@@ -343,13 +343,24 @@
     position: sticky; left: 0;
   }
   .ev-cell {
-    text-align: center; border-radius: 6px; padding: 5px 2px; cursor: pointer;
+    position: relative; text-align: center; border-radius: 6px; padding: 5px 2px; cursor: pointer;
     line-height: 1.05; min-width: 52px; transition: transform .06s ease;
   }
-  .ev-cell:hover { transform: scale(1.07); box-shadow: 0 2px 8px rgba(0,0,0,.25); position: relative; z-index: 1; }
+  .ev-cell:hover { transform: scale(1.07); box-shadow: 0 2px 8px rgba(0,0,0,.25); z-index: 1; }
   .ev-cell .act { display: block; font-size: 9.5px; font-weight: 800; opacity: .82; letter-spacing: .03em; }
+  .ev-cell .act s { opacity: .6; text-decoration-thickness: 1px; margin-right: 1px; }
   .ev-cell .ev { display: block; font-size: 11.5px; font-weight: 700; }
   .ev-cell.active { outline: 2px solid var(--accent); outline-offset: -2px; }
+  /* Deviation from basic strategy (TC 0): ring + corner flag in the cell's own contrast color */
+  .ev-cell.dev { box-shadow: inset 0 0 0 2px currentColor; }
+  .ev-cell.dev .act { opacity: 1; }
+  .dev-flag {
+    position: absolute; top: 0; right: 0; width: 0; height: 0;
+    border-style: solid; border-width: 0 9px 9px 0;
+    border-color: transparent currentColor transparent transparent;
+    border-top-right-radius: 6px;
+  }
+  .dev-count { color: var(--accent-ink); }
   .grid-foot { font-size: 11.5px; color: var(--ink-soft); margin: 14px 0 0; line-height: 1.5; }
   .grid-foot b { color: var(--ink); font-weight: 700; }
 </style>
@@ -395,7 +406,7 @@
           <table class="ev-table" id="evTable"></table>
         </div>
         <div class="grid-controls">
-          <p class="grid-foot"><b>S</b>tand · <b>H</b>it · <b>D</b>ouble · s<b>P</b>lit · su<b>R</b>render, with its expected value. Click any cell for the full breakdown below.</p>
+          <p class="grid-foot"><b>S</b>tand · <b>H</b>it · <b>D</b>ouble · s<b>P</b>lit · su<b>R</b>render, with its expected value. Click any cell for the full breakdown below. Move the true count off zero and any cell whose best play changes is <b>ringed</b> — showing <s>old</s>&#8202;new.</p>
           <details class="tc-accordion" id="tcAccordion">
             <summary>
               <span class="lbl">Card counting <span class="mini">· true count</span></span>
@@ -844,6 +855,7 @@
     else { hue = 8; sat = 60; light = 93 - 42 * (-t); }
     return { bg: "hsl(" + hue + "," + sat + "%," + light.toFixed(1) + "%)", fg: light < 60 ? "#ffffff" : "#20130a" };
   }
+  var ACT_NAME = { S: "Stand", H: "Hit", D: "Double", P: "Split", R: "Surrender" };
   function cellBest(type, val, up, tc) {
     var c = deriveCardsFor(type, val);
     var e = buildEngine(c[0], c[1], up, tc);
@@ -855,7 +867,24 @@
     return { act: best[0], ev: best[1] };
   }
 
+  // Basic-strategy (TC 0) best action per cell — computed once, then compared against.
+  var BASE_ACTIONS = null;
+  function ensureBaseActions() {
+    if (BASE_ACTIONS) return;
+    BASE_ACTIONS = {};
+    GRID_SECTIONS.forEach(function (sec) {
+      sec.vals.forEach(function (val) {
+        GRID_COLS.forEach(function (up) {
+          BASE_ACTIONS[sec.type + "|" + val + "|" + up] = cellBest(sec.type, val, up, 0).act;
+        });
+      });
+    });
+  }
+
   function buildEvTable(tc) {
+    ensureBaseActions();
+    var showDev = Math.abs(tc) > 1e-9;
+    var devCount = 0;
     var COLS = GRID_COLS;
     var h = "<thead><tr><th class='corner'>Hand&#8201;&#8726;&#8201;Up</th>";
     COLS.forEach(function (up) { h += "<th>" + RANKS[VALS.indexOf(up)] + "</th>"; });
@@ -868,18 +897,35 @@
           var b = cellBest(sec.type, val, up, tc);
           var col = evColor(b.ev);
           var active = (state.handType === sec.type && state.handVal === val && state.up === up);
-          h += "<td class='ev-cell" + (active ? " active" : "") + "'" +
+          var baseAct = BASE_ACTIONS[sec.type + "|" + val + "|" + up];
+          var isDev = showDev && b.act !== baseAct;
+          if (isDev) devCount++;
+          var title = isDev
+            ? "Deviation at TC " + (tc > 0 ? "+" : "") + tc + ": basic strategy = " + ACT_NAME[baseAct] +
+              ", now " + ACT_NAME[b.act]
+            : ACT_NAME[b.act] + " · EV " + fmtEvCell(b.ev);
+          var actHtml = isDev
+            ? "<span class='act'><s>" + baseAct + "</s>&#8202;" + b.act + "</span>"
+            : "<span class='act'>" + b.act + "</span>";
+          h += "<td class='ev-cell" + (active ? " active" : "") + (isDev ? " dev" : "") + "'" +
                " data-type='" + sec.type + "' data-val='" + val + "' data-up='" + up + "'" +
+               " title='" + title + "'" +
                " style='background:" + col.bg + ";color:" + col.fg + "'>" +
-               "<span class='act'>" + b.act + "</span><span class='ev'>" + fmtEvCell(b.ev) + "</span></td>";
+               (isDev ? "<span class='dev-flag'></span>" : "") +
+               actHtml + "<span class='ev'>" + fmtEvCell(b.ev) + "</span></td>";
         });
         h += "</tr>";
       });
     });
     h += "</tbody>";
     document.getElementById("evTable").innerHTML = h;
-    document.getElementById("gridSub").innerHTML =
-      "Best-action EV per unit · 6-deck, H17 · true count <b>" + (tc > 0 ? "+" : "") + tc + "</b>.";
+    var sub = "Best-action EV per unit · 6-deck, H17 · true count <b>" + (tc > 0 ? "+" : "") + tc + "</b>";
+    if (showDev) {
+      sub += devCount > 0
+        ? " · <b class='dev-count'>" + devCount + " deviation" + (devCount === 1 ? "" : "s") + "</b> from basic strategy ringed"
+        : " · no deviations from basic strategy yet";
+    }
+    document.getElementById("gridSub").innerHTML = sub + ".";
   }
 
   function render() {
