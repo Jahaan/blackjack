@@ -10,7 +10,18 @@ A self-contained blackjack expected-value dashboard (single static `index.html`,
   and a Hi-Lo true-count adjustment.
 - `trainer.html` — **Count Trainer.** An auto-dealt shoe game for practicing Hi-Lo counting:
   - Deals like a real table (2–8 decks, cut card, optional bot players who play basic strategy) and waits for your
-    Hit / Stand / Double / Split / Surrender / Insurance decisions (keyboard: `H S D P R`, `I`/`N`, `Space` for next hand).
+    decisions, made with real table signals on the felt (mouse or touch):
+    | Decision | Motion |
+    |---|---|
+    | Hit | Tap the felt |
+    | Stand | Wave side to side |
+    | Double | Drag a chip from your stack onto your bet |
+    | Split | Draw a V |
+    | Surrender | Draw one flat horizontal line |
+    | Insurance / decline | Drag a chip onto the insurance line / wave it off |
+    | Next hand | Tap the felt |
+
+    Keyboard shortcuts (`H S D P R`, `I`/`N`, `Space`) also work, and on-screen buttons can be re-enabled in settings.
   - Grades every decision against basic strategy for these rules, with an option to grade Illustrious 18 / Fab 4 index plays.
   - Quizzes you on the true count (and optionally the running count) every few hands; estimate decks left from the discard tray.
   - Tracks accuracy by hand type, recent mistakes, repeat leaks and a quiz log (saved in your browser's localStorage).

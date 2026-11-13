@@ -175,6 +175,61 @@
   @keyframes dealSm { from { opacity: 0; transform: translate(120px, -140px) scale(.82) rotate(14deg); } to { opacity: 1; transform: scale(.82); } }
   @media (prefers-reduced-motion: reduce) { .pc.deal, .pc.flip, .seat:not(.me) .pc.deal { animation: none; } }
 
+  /* Gestures */
+  .felt { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: crosshair; }
+  .felt .quiz { touch-action: auto; user-select: text; -webkit-user-select: text; cursor: default; }
+  .trail { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; transition: opacity .45s ease; }
+  .trail.fade { opacity: 0; }
+  .g-toast {
+    position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%) scale(.9); z-index: 4; pointer-events: none;
+    background: rgba(0,0,0,.55); color: #fff; font-weight: 800; font-size: 20px; letter-spacing: .02em;
+    padding: 8px 18px; border-radius: 999px; opacity: 0; transition: opacity .18s, transform .18s; white-space: nowrap;
+  }
+  .g-toast.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  .g-toast.warn { background: rgba(120,30,24,.85); font-size: 14px; font-weight: 700; }
+  .ins-line {
+    margin: 10px auto 0; width: min(78%, 420px); text-align: center; font-size: 10.5px; font-weight: 800;
+    letter-spacing: .14em; text-transform: uppercase; color: rgba(247,231,184,.55);
+    border: 1.5px solid rgba(247,231,184,.28); border-left: none; border-right: none; padding: 5px 0;
+    border-radius: 50% / 18px; position: relative; min-height: 30px; transition: background .15s, color .15s, border-color .15s;
+  }
+  .ins-line.offer { color: #f7e7b8; border-color: #f7e7b8; background: rgba(247,231,184,.08); animation: pulse 1.2s ease-in-out infinite; }
+  .ins-line.target { background: rgba(247,231,184,.25); }
+  .ins-line .chip { position: absolute; right: 12%; top: 50%; transform: translateY(-50%); }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 4px rgba(247,231,184,.12); } }
+  .chip {
+    width: 30px; height: 30px; border-radius: 50%; flex: none; display: inline-grid; place-items: center;
+    background: #c0392b; border: 3px dashed rgba(255,255,255,.92); box-shadow: 0 2px 4px rgba(0,0,0,.4), inset 0 0 0 3px #c0392b;
+    color: #fff; font: 800 10px/1 var(--mono);
+  }
+  .betspot {
+    width: 46px; height: 46px; margin: 6px auto 0; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.35);
+    display: grid; place-items: center; position: relative; transition: background .15s, border-color .15s, transform .15s;
+  }
+  .betspot .chip + .chip { position: absolute; transform: translate(5px, -5px); }
+  .betspot.live { border-color: #f7e7b8; }
+  .betspot.target { background: rgba(247,231,184,.25); transform: scale(1.12); }
+  .rack { display: flex; justify-content: center; margin-top: 8px; padding: 4px 8px; cursor: grab; touch-action: none; }
+  .rack .chip { margin-left: -18px; box-shadow: 0 2px 0 #7d241b, 0 3px 5px rgba(0,0,0,.4), inset 0 0 0 3px #c0392b; }
+  .rack .chip:first-child { margin-left: 0; }
+  .rack:hover .chip:last-child { transform: translateY(-3px); }
+  .ghost-chip { position: fixed; left: 0; top: 0; z-index: 1000; pointer-events: none; transform: translate(-50%, -50%) scale(1.15); }
+  .guide { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+  .guide.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .guide.one { grid-template-columns: 1fr; }
+  .g-item {
+    border: 1px solid var(--line-strong); background: var(--panel); border-radius: 11px; padding: 8px 6px;
+    display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; transition: opacity .15s, border-color .15s, background .15s;
+  }
+  .g-item svg { width: 34px; height: 24px; color: var(--accent); }
+  .g-item b { font-size: 13.5px; }
+  .g-item span { font-size: 11.5px; color: var(--ink-soft); line-height: 1.25; }
+  .g-item.off { opacity: .32; }
+  .g-item.flash { border-color: var(--accent); background: var(--panel-2); }
+  .acts { margin-top: 8px; }
+  .acts.hidden { display: none; }
+  @media (max-width: 560px) { .g-item span { font-size: 10.5px; } .g-item b { font-size: 12.5px; } .guide { gap: 5px; } }
+
   /* Quiz overlay */
   .quiz {
     position: absolute; inset: 0; z-index: 5; display: none; align-items: center; justify-content: center;
@@ -298,6 +353,37 @@
     .pc .r { font-size: 15px; } .pc .s { font-size: 17px; } .pc .sm { top: 20px; }
     .seat { min-width: 84px; padding: 6px 4px 8px; }
     .seat.me { min-width: 120px; }
+    .shell { padding-top: 10px; }
+    header.masthead { padding: 10px 12px; }
+    .brand .mark { width: 30px; height: 30px; font-size: 13px; }
+    .brand h1 { font-size: 16px; }
+    .brand p, .rules { display: none; }
+    .ghost-btn { height: 26px; padding: 0 9px; font-size: 11.5px; }
+    .layout { margin-top: 10px; }
+    .felt { min-height: 0; }
+    .felt-top .dealer-zone { padding-top: 16px; }
+    .cards { min-height: 70px; }
+    .banner { margin: 6px auto 6px; min-height: 22px; font-size: 13px; }
+    .ins-line { margin-top: 6px; min-height: 26px; padding: 3px 0; font-size: 9.5px; }
+    .betspot { width: 40px; height: 40px; margin-top: 4px; }
+    .rack { margin-top: 4px; }
+    .seats { margin-top: 6px; }
+    .actionbar { margin-top: 10px; }
+    .g-item { padding: 6px 3px; }
+    .g-item svg { height: 20px; }
+    .mast-top { flex-wrap: nowrap; }
+    .seats { flex-wrap: nowrap; gap: 4px; }
+    .seat:not(.me) { min-width: 0; flex: 1 1 0; padding: 4px 2px 6px; }
+    .seat:not(.me) .name { font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .seat:not(.me) .pc, .seat:not(.me) .pc.deal { width: 30px; height: 44px; padding: 3px 3px; transform: none; margin-bottom: 0; animation-name: deal; }
+    .seat:not(.me) .pc .r { font-size: 11px; }
+    .seat:not(.me) .pc .s { font-size: 12px; }
+    .seat:not(.me) .pc .sm { display: none; }
+    .seat:not(.me) .cards { min-height: 46px; }
+    .seat:not(.me) .cards .pc + .pc { margin-left: -14px; }
+    .seat:not(.me) .tot-pill { font-size: 10.5px; padding: 1px 6px; }
+    .seat:not(.me) .hands { gap: 4px; }
+    .seat:not(.me) .badge { font-size: 8px; letter-spacing: 0; padding: 1px 4px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
   }
 </style>
 </head>
@@ -347,8 +433,12 @@
             <span class="num" id="shoeNum"></span>
           </div>
         </div>
+        <div class="ins-line" id="insLine">Insurance pays 2 to 1</div>
         <div class="banner" id="banner" aria-live="polite"></div>
         <div class="seats" id="seats"></div>
+
+        <canvas class="trail" id="trail"></canvas>
+        <div class="g-toast" id="gToast"></div>
 
         <div class="quiz" id="quiz" role="dialog" aria-modal="true" aria-labelledby="quizTitle">
           <div class="quiz-box">
@@ -367,8 +457,9 @@
       </div>
 
       <div class="actionbar">
-        <div class="acts" id="acts"></div>
-        <div class="feedback" id="feedback"><span class="ic">♠</span><span>Cards are dealt automatically. Make your play with the buttons or keys <b>H S D P R</b>. Keep the running count as you go — you'll be quizzed on the true count between hands.</span></div>
+        <div class="guide" id="guide" aria-live="polite"></div>
+        <div class="acts hidden" id="acts"></div>
+        <div class="feedback" id="feedback"><span class="ic">♠</span><span>Cards are dealt automatically. Play with real table signals on the felt: <b>tap</b> to hit, <b>wave</b> to stand, <b>drag a chip</b> onto your bet to double, draw a <b>V</b> to split, draw a <b>flat line</b> to surrender. Keys <b>H S D P R</b> also work. Keep the running count as you go — you'll be quizzed on the true count between hands.</span></div>
         <div class="controls-row">
           <button class="chip-btn" id="pauseBtn" type="button">Pause</button>
           <button class="chip-btn" id="shuffleBtn" type="button">New shoe</button>
@@ -416,6 +507,7 @@
           <select id="setQuiz"><option value="off">Off</option><option value="1-1">Every hand</option><option value="2-4">Every 2–4 hands</option><option value="4-7">Every 4–7 hands</option><option value="8-12">Every 8–12 hands</option></select></div>
         <div class="set-row"><label for="setAskRC">Also ask running count</label><span class="switch"><input type="checkbox" id="setAskRC"><span></span></span></div>
         <div class="set-row"><label for="setDevs">Grade count deviations</label><span class="switch"><input type="checkbox" id="setDevs"><span></span></span></div>
+        <div class="set-row"><label for="setButtons">Show action buttons too</label><span class="switch"><input type="checkbox" id="setButtons"><span></span></span></div>
         <div class="set-row"><label for="setShow">Show count (training wheels)</label><span class="switch"><input type="checkbox" id="setShow"><span></span></span></div>
         <div class="hint">True count = running count ÷ decks remaining. Quiz answers are accepted if they match the exact value rounded, truncated, or within ±0.5. Deviations use the Illustrious 18 &amp; Fab 4 indices.</div>
         <div class="hint"><button class="link-btn" id="resetBtn" type="button">Reset all stats</button></div>
@@ -448,7 +540,7 @@
   function load() { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return null; } }
   function save() { try { localStorage.setItem(KEY, JSON.stringify({ settings: settings, stats: stats })); } catch (e) {} }
 
-  var DEFAULT_SETTINGS = { decks: 6, pen: 0.75, bots: 2, seat: 'middle', speed: 'normal', auto: true, quiz: '4-7', askRC: false, devs: false, show: false };
+  var DEFAULT_SETTINGS = { decks: 6, pen: 0.75, bots: 2, seat: 'middle', speed: 'normal', auto: true, quiz: '4-7', askRC: false, devs: false, show: false, buttons: false };
   function freshStats() {
     return { hands: 0, decisions: 0, correct: 0, cats: { hard: [0, 0], soft: [0, 0], pair: [0, 0], ins: [0, 0], dev: [0, 0] },
       quizzes: 0, quizCorrect: 0, quizErr: 0, rcQ: 0, rcCorrect: 0, net: 0, streak: 0, best: 0, shoes: 1,
@@ -920,11 +1012,15 @@
           '<div class="cards">' + h.cards.map(cardHTML).join('') + '</div>' +
           '<div class="tot-pill">' + totLabel(h.cards) + (h.doubled ? ' ×2' : '') + '</div>' +
           (b ? '<div><span class="badge ' + b[0] + '">' + b[1] + '</span></div>' : '') +
+          (seat.me ? '<div class="betspot' + (h === activeHand && pending && pending.legal.indexOf('D') >= 0 ? ' live' : '') + '"><span class="chip">1</span>' + (h.doubled || h.bet > 1 ? '<span class="chip">1</span>' : '') + '</div>' : '') +
           '</div>';
       });
-      html += '</div></div>';
+      html += '</div>' + (seat.me ? '<div class="rack" title="Drag a chip to double (onto your bet) or insure (onto the insurance line)"><span class="chip"></span><span class="chip"></span><span class="chip"></span><span class="chip">1</span></div>' : '') + '</div>';
     });
     document.getElementById('seats').innerHTML = html;
+    var me0 = mySeat(), il = document.getElementById('insLine');
+    il.classList.toggle('offer', !!(pending && pending.legal.indexOf('I') >= 0));
+    il.innerHTML = 'Insurance pays 2 to 1' + (me0 && me0.ins ? '<span class="chip">½</span>' : '');
     renderMeters();
   }
   function ticksHTML() {
@@ -950,8 +1046,32 @@
   function unseenSafe() { return shoe.length + (dealer.cards && dealer.cards[1] && !dealer.cards[1].up ? 1 : 0); }
   function banner(t) { document.getElementById('banner').textContent = t; }
 
+  var ICONS = {
+    tap: '<svg viewBox="0 0 34 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="17" cy="12" r="3" fill="currentColor"/><circle cx="17" cy="12" r="8" opacity=".45"/></svg>',
+    wave: '<svg viewBox="0 0 34 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 12c3-7 6-7 7 0s4 7 7 0 4-7 7 0 4 7 7 0"/></svg>',
+    chip: '<svg viewBox="0 0 34 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="7" cy="16" r="5" stroke-dasharray="2.5 2"/><path d="M13 13l11-7m0 0h-6m6 0v6"/><circle cx="28" cy="7" r="4" opacity=".45"/></svg>',
+    v: '<svg viewBox="0 0 34 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3l8 18 8-18"/></svg>',
+    line: '<svg viewBox="0 0 34 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 12h28"/></svg>'
+  };
+  var GUIDE = {
+    H: ['tap', 'Hit', 'Tap the felt'], S: ['wave', 'Stand', 'Wave side to side'], D: ['chip', 'Double', 'Chip onto your bet'],
+    P: ['v', 'Split', 'Draw a V'], R: ['line', 'Surrender', 'One flat line'],
+    I: ['chip', 'Insurance', 'Chip onto the insurance line'], N: ['wave', 'No insurance', 'Wave it off'],
+    DEAL: ['tap', 'Next hand', 'Tap the felt · Space']
+  };
+  function renderGuide(legal) {
+    var g = document.getElementById('guide');
+    var keys = legal.indexOf('I') >= 0 ? ['I', 'N'] : legal.indexOf('DEAL') >= 0 ? ['DEAL'] : ['H', 'S', 'D', 'P', 'R'];
+    g.className = 'guide' + (keys.length === 2 ? ' two' : keys.length === 1 ? ' one' : '');
+    g.innerHTML = keys.map(function (k) {
+      var it = GUIDE[k];
+      return '<div class="g-item' + (legal.indexOf(k) < 0 ? ' off' : '') + '" data-a="' + k + '">' + ICONS[it[0]] + '<b>' + it[1] + '</b><span>' + it[2] + '</span></div>';
+    }).join('');
+  }
   function renderActs() {
     var el = document.getElementById('acts');
+    renderGuide(pending ? pending.legal : []);
+    if (seats.length) render();
     var legal = pending ? pending.legal : [];
     var ins = legal.indexOf('I') >= 0;
     var deal = legal.indexOf('DEAL') >= 0;
@@ -967,6 +1087,7 @@
       h = btn('H', 'Hit', 'H') + btn('S', 'Stand', 'S') + btn('D', 'Double', 'D') + btn('P', 'Split', 'P') + btn('R', 'Surrender', 'R');
     }
     el.innerHTML = h;
+    el.classList.toggle('hidden', !settings.buttons);
     function btn(a, label, key) {
       return '<button class="act" data-a="' + a + '"' + (legal.indexOf(a) < 0 ? ' disabled' : '') + '>' + label + '<kbd>' + key + '</kbd></button>';
     }
@@ -1057,6 +1178,7 @@
   bindSwitch('setAskRC', 'askRC');
   bindSwitch('setDevs', 'devs');
   bindSwitch('setShow', 'show');
+  bindSwitch('setButtons', 'buttons');
 
   document.getElementById('pauseBtn').addEventListener('click', function () {
     paused = !paused;
@@ -1085,6 +1207,123 @@
     try { localStorage.setItem('bj-theme', next); } catch (e) {}
   });
   try { var th = localStorage.getItem('bj-theme'); if (th) document.documentElement.setAttribute('data-theme', th); } catch (e) {}
+
+  // ---------- Gestures (pointer: mouse, touch, pen) ----------
+  var felt = document.getElementById('felt'), trail = document.getElementById('trail'), tctx = trail.getContext('2d');
+  var gToast = document.getElementById('gToast'), toastTimer = null, fadeTimer = null, gest = null, ghost = null;
+  function toast(text, warn) {
+    gToast.textContent = text; gToast.className = 'g-toast on' + (warn ? ' warn' : '');
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { gToast.className = 'g-toast' + (warn ? ' warn' : ''); }, warn ? 1300 : 700);
+  }
+  function flashGuide(a) {
+    var it = document.querySelector('#guide .g-item[data-a="' + a + '"]');
+    if (it) { it.classList.add('flash'); setTimeout(function () { it.classList.remove('flash'); }, 400); }
+  }
+  function doAct(a) {
+    if (!pending || pending.legal.indexOf(a) < 0) return false;
+    var label = GUIDE[a] ? GUIDE[a][1] : a;
+    flashGuide(a); if (a !== 'DEAL') toast(label);
+    act(a); return true;
+  }
+  function sizeTrail() {
+    var r = felt.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    if (trail.width !== Math.round(r.width * dpr) || trail.height !== Math.round(r.height * dpr)) {
+      trail.width = Math.round(r.width * dpr); trail.height = Math.round(r.height * dpr);
+    }
+    tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    tctx.clearRect(0, 0, r.width, r.height);
+    tctx.lineCap = 'round'; tctx.lineJoin = 'round'; tctx.lineWidth = 6; tctx.strokeStyle = 'rgba(247,231,184,.75)';
+    return r;
+  }
+  function overEl(el, x, y, pad) {
+    if (!el) return false;
+    var r = el.getBoundingClientRect();
+    return x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad;
+  }
+  function betTarget() { return felt.querySelector('.seat.me .betspot.live') || felt.querySelector('.seat.me .hand.active .betspot') || felt.querySelector('.seat.me .betspot'); }
+  function dropTargets(x, y) {
+    var ins = document.getElementById('insLine'), bet = betTarget();
+    return { ins: overEl(ins, x, y, 18), bet: overEl(bet, x, y, 30), insEl: ins, betEl: bet };
+  }
+  function reversals(vals, th) {
+    var rev = 0, dir = 0, ext = vals[0], start = vals[0];
+    for (var i = 1; i < vals.length; i++) {
+      var v = vals[i];
+      if (dir === 0) { if (v - start > th) { dir = 1; ext = v; } else if (start - v > th) { dir = -1; ext = v; } }
+      else if (dir === 1) { if (v > ext) ext = v; else if (ext - v > th) { rev++; dir = -1; ext = v; } }
+      else { if (v < ext) ext = v; else if (v - ext > th) { rev++; dir = 1; ext = v; } }
+    }
+    return rev;
+  }
+  function classify(pts, dur) {
+    var xs = pts.map(function (p) { return p.x; }), ys = pts.map(function (p) { return p.y; });
+    var minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs), minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
+    var w = maxX - minX, h = maxY - minY, len = 0;
+    for (var i = 1; i < pts.length; i++) len += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+    if (len < 16 && dur < 500) return 'tap';
+    var xr = reversals(xs, 22), yr = reversals(ys, 22);
+    if (xr >= 1 && w >= 50 && w > h * 1.1) return 'wave';
+    var low = ys.indexOf(maxY), n = ys.length - 1;
+    if (yr === 1 && xr === 0 && maxY - ys[0] > 30 && maxY - ys[n] > 30 && h > w * 0.45 && low > 0 && low < n) return 'v';
+    if (xr === 0 && w >= 80 && h < w * 0.3) return 'line';
+    return null;
+  }
+  var GEST_ACT = { tap: ['DEAL', 'H'], wave: ['S', 'N'], v: ['P'], line: ['R'] };
+  var GEST_WHY = { tap: 'Tap = hit', wave: 'Wave = stand', v: "Can't split this hand", line: 'Surrender is only allowed on your first two cards' };
+  felt.addEventListener('pointerdown', function (e) {
+    if (e.target.closest('.quiz') || gest) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    e.preventDefault();
+    clearTimeout(fadeTimer); trail.classList.remove('fade');
+    gest = { id: e.pointerId, pts: [{ x: e.clientX, y: e.clientY }], t0: performance.now(), chip: !!e.target.closest('.rack'), rect: sizeTrail() };
+    if (gest.chip) {
+      ghost = document.createElement('span'); ghost.className = 'chip ghost-chip'; ghost.textContent = '1';
+      document.body.appendChild(ghost); moveGhost(e.clientX, e.clientY);
+    }
+    try { felt.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  function moveGhost(x, y) { ghost.style.left = x + 'px'; ghost.style.top = y + 'px'; }
+  felt.addEventListener('pointermove', function (e) {
+    if (!gest || e.pointerId !== gest.id) return;
+    var last = gest.pts[gest.pts.length - 1];
+    if (Math.hypot(e.clientX - last.x, e.clientY - last.y) < 2) return;
+    gest.pts.push({ x: e.clientX, y: e.clientY });
+    if (gest.chip) {
+      moveGhost(e.clientX, e.clientY);
+      var t = dropTargets(e.clientX, e.clientY);
+      if (t.insEl) t.insEl.classList.toggle('target', t.ins);
+      if (t.betEl) t.betEl.classList.toggle('target', t.bet && !t.ins);
+      return;
+    }
+    var r = gest.rect;
+    tctx.beginPath(); tctx.moveTo(last.x - r.left, last.y - r.top); tctx.lineTo(e.clientX - r.left, e.clientY - r.top); tctx.stroke();
+  });
+  function endGesture(e, cancelled) {
+    if (!gest || e.pointerId !== gest.id) return;
+    var g = gest; gest = null;
+    try { felt.releasePointerCapture(e.pointerId); } catch (err) {}
+    trail.classList.add('fade'); fadeTimer = setTimeout(function () { tctx.clearRect(0, 0, trail.width, trail.height); }, 450);
+    if (g.chip) {
+      if (ghost) { ghost.remove(); ghost = null; }
+      felt.querySelectorAll('.target').forEach(function (el) { el.classList.remove('target'); });
+      if (cancelled) return;
+      var t = dropTargets(e.clientX, e.clientY);
+      if (t.ins) { if (!doAct('I')) toast('Insurance is only offered against a dealer ace', true); }
+      else if (t.bet) { if (!doAct('D')) toast(pending && pending.legal.indexOf('H') >= 0 ? 'You can only double on your first two cards' : 'Not your turn', true); }
+      else if (g.pts.length > 3) toast('Drop the chip on your bet to double', true);
+      return;
+    }
+    if (cancelled || !pending) return;
+    var kind = classify(g.pts, performance.now() - g.t0);
+    if (!kind) { toast('Not recognized: tap, wave, chip, V or line', true); return; }
+    var opts = GEST_ACT[kind];
+    for (var i = 0; i < opts.length; i++) if (doAct(opts[i])) return;
+    if (pending.legal.indexOf('I') >= 0) toast('Chip on the insurance line to insure, or wave it off', true);
+    else toast(GEST_WHY[kind], true);
+  }
+  felt.addEventListener('pointerup', function (e) { endGesture(e, false); });
+  felt.addEventListener('pointercancel', function (e) { endGesture(e, true); });
+  felt.addEventListener('contextmenu', function (e) { if (!e.target.closest('.quiz')) e.preventDefault(); });
 
   // ---------- Main loop ----------
   async function main() {
