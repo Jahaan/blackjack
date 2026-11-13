@@ -225,6 +225,8 @@
   .g-item b { font-size: 13.5px; }
   .g-item span { font-size: 11.5px; color: var(--ink-soft); line-height: 1.25; }
   .g-item.off { opacity: .32; }
+  .g-item[data-a="START"] { cursor: pointer; }
+  .g-item[data-a="START"]:hover { border-color: var(--accent); }
   .g-item.flash { border-color: var(--accent); background: var(--panel-2); }
   .acts { margin-top: 8px; }
   .acts.hidden { display: none; }
@@ -236,6 +238,18 @@
     background: rgba(6,24,15,.72); backdrop-filter: blur(2px); padding: 16px;
   }
   .quiz.on { display: flex; }
+  .start-ov {
+    position: absolute; inset: 0; z-index: 5; display: none; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; background: rgba(6,24,15,.55); padding: 16px; text-align: center; cursor: default;
+  }
+  .start-ov.on { display: flex; }
+  .start-ov p { margin: 0; color: rgba(238,245,239,.85); font-size: 13.5px; max-width: 320px; }
+  .start-btn {
+    height: 56px; min-width: 180px; padding: 0 28px; border: none; border-radius: 999px; background: var(--accent); color: #1c1608;
+    font: 800 18px/1 var(--sans); letter-spacing: .02em; cursor: pointer; box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  }
+  .start-btn:hover { filter: brightness(1.06); }
+  .start-btn:focus-visible { outline: 3px solid #f7e7b8; outline-offset: 3px; }
   .quiz-box {
     width: 100%; max-width: 380px; background: var(--panel); color: var(--ink); border-radius: 14px;
     padding: 18px 18px 16px; box-shadow: 0 20px 50px rgba(0,0,0,.4); border: 1px solid var(--line);
@@ -444,6 +458,10 @@
         <div class="seats" id="seats"></div>
 
         <canvas class="trail" id="trail"></canvas>
+        <div class="start-ov" id="startOv">
+          <button class="start-btn" id="startBtn" type="button">Start</button>
+          <p>Fresh shoe, running count 0. Press Start (or Space) when you're ready for the first hand.</p>
+        </div>
         <div class="g-toast" id="gToast"></div>
 
         <div class="quiz" id="quiz" role="dialog" aria-modal="true" aria-labelledby="quizTitle">
@@ -1076,11 +1094,12 @@
     H: ['tap', 'Hit', 'Tap the felt'], S: ['wave', 'Stand', 'Wave back & forth'], D: ['chip', 'Double', 'Chip onto your bet'],
     P: ['v', 'Split', 'Draw a V'], R: ['line', 'Surrender', 'One line behind your chips'],
     I: ['chip', 'Insurance', 'Chip onto the insurance line'], N: ['wave', 'No insurance', 'Wave it off'],
-    DEAL: ['tap', 'Next hand', 'Tap the felt · Space']
+    DEAL: ['tap', 'Next hand', 'Tap the felt · Space'],
+    START: ['tap', 'Start', 'Press Start to deal']
   };
   function renderGuide(legal) {
     var g = document.getElementById('guide');
-    var keys = legal.indexOf('I') >= 0 ? ['I', 'N'] : legal.indexOf('DEAL') >= 0 ? ['DEAL'] : ['H', 'S', 'D', 'P', 'R'];
+    var keys = legal.indexOf('I') >= 0 ? ['I', 'N'] : legal.indexOf('DEAL') >= 0 ? ['DEAL'] : legal.indexOf('START') >= 0 ? ['START'] : ['H', 'S', 'D', 'P', 'R'];
     g.className = 'guide' + (keys.length === 2 ? ' two' : keys.length === 1 ? ' one' : '');
     g.innerHTML = keys.map(function (k) {
       var it = GUIDE[k];
@@ -1093,14 +1112,14 @@
     if (seats.length) render();
     var legal = pending ? pending.legal : [];
     var ins = legal.indexOf('I') >= 0;
-    var deal = legal.indexOf('DEAL') >= 0;
+    var deal = legal.indexOf('DEAL') >= 0 || legal.indexOf('START') >= 0;
     var h = '';
     if (ins) {
       el.className = 'acts ins';
       h = btn('I', 'Insurance', 'I') + btn('N', 'No insurance', 'N');
     } else if (deal) {
       el.className = 'acts ins';
-      h = '<button class="act go" data-a="DEAL" style="grid-column:1 / -1">' + (settings.auto && !paused ? 'Next hand (dealing…)' : 'Deal next hand') + '<kbd>Space</kbd></button>';
+      h = '<button class="act go" data-a="' + (legal.indexOf('START') >= 0 ? 'START' : 'DEAL') + '" style="grid-column:1 / -1">' + (legal.indexOf('START') >= 0 ? 'Start' : settings.auto && !paused ? 'Next hand (dealing…)' : 'Deal next hand') + '<kbd>Space</kbd></button>';
     } else {
       el.className = 'acts';
       h = btn('H', 'Hit', 'H') + btn('S', 'Stand', 'S') + btn('D', 'Double', 'D') + btn('P', 'Split', 'P') + btn('R', 'Surrender', 'R');
@@ -1111,6 +1130,9 @@
       return '<button class="act" data-a="' + a + '"' + (legal.indexOf(a) < 0 ? ' disabled' : '') + '>' + label + '<kbd>' + key + '</kbd></button>';
     }
   }
+  document.getElementById('guide').addEventListener('click', function (e) {
+    var it = e.target.closest('.g-item[data-a="START"]'); if (it) act('START');
+  });
   document.getElementById('acts').addEventListener('click', function (e) {
     var b = e.target.closest('button[data-a]'); if (b) act(b.getAttribute('data-a'));
   });
@@ -1120,6 +1142,7 @@
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     var k = e.key.toUpperCase();
     var map = { H: 'H', S: 'S', D: 'D', P: 'P', R: 'R', I: 'I', N: 'N', Y: 'I', ' ': 'DEAL', ENTER: 'DEAL' };
+    if ((k === ' ' || k === 'ENTER') && pending && pending.legal.indexOf('START') >= 0) { e.preventDefault(); act('START'); return; }
     if (map[k] && pending && pending.legal.indexOf(map[k]) >= 0) { e.preventDefault(); act(map[k]); }
   });
 
@@ -1320,7 +1343,7 @@
   GEST_ACT['line-away'] = [];
   var GEST_WHY = { tap: 'Tap = hit', wave: 'Wave = stand', v: "Can't split this hand", line: 'Surrender is only allowed on your first two cards', 'line-away': 'To surrender, draw one line behind your chips' };
   felt.addEventListener('pointerdown', function (e) {
-    if (e.target.closest('.quiz') || gest) return;
+    if (e.target.closest('.quiz, .start-ov') || gest) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     e.preventDefault();
     clearTimeout(fadeTimer); trail.classList.remove('fade');
@@ -1381,7 +1404,15 @@
   async function main() {
     document.getElementById('chipDecks').textContent = settings.decks + ' decks';
     buildShoe(); scheduleQuiz();
-    setupSeats(); render(); renderStats(); renderActs();
+    setupSeats(); render(); renderStats();
+    var ov = document.getElementById('startOv');
+    ov.classList.add('on');
+    document.getElementById('startBtn').addEventListener('click', function () { act('START'); });
+    banner('');
+    var started = waitFor(['START']);
+    setTimeout(function () { try { document.getElementById('startBtn').focus({ preventScroll: true }); } catch (e) {} }, 50);
+    await started;
+    ov.classList.remove('on');
     while (true) {
       if (paused) { banner('Paused'); await new Promise(function (r) { resumeFn = r; }); }
       try { await playRound(); }
