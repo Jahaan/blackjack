@@ -14,10 +14,10 @@ A self-contained blackjack expected-value dashboard (single static `index.html`,
     | Decision | Motion |
     |---|---|
     | Hit | Tap the felt |
-    | Stand | Wave side to side |
+    | Stand | Wave back and forth (fires as soon as you reverse) |
     | Double | Drag a chip from your stack onto your bet |
     | Split | Draw a V |
-    | Surrender | Draw one flat horizontal line |
+    | Surrender | Draw one straight line behind your chips |
     | Insurance / decline | Drag a chip onto the insurance line / wave it off |
     | Next hand | Tap the felt |
 

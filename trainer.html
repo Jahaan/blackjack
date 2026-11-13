@@ -1054,8 +1054,8 @@
     line: '<svg viewBox="0 0 34 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 12h28"/></svg>'
   };
   var GUIDE = {
-    H: ['tap', 'Hit', 'Tap the felt'], S: ['wave', 'Stand', 'Wave side to side'], D: ['chip', 'Double', 'Chip onto your bet'],
-    P: ['v', 'Split', 'Draw a V'], R: ['line', 'Surrender', 'One flat line'],
+    H: ['tap', 'Hit', 'Tap the felt'], S: ['wave', 'Stand', 'Wave back & forth'], D: ['chip', 'Double', 'Chip onto your bet'],
+    P: ['v', 'Split', 'Draw a V'], R: ['line', 'Surrender', 'One line behind your chips'],
     I: ['chip', 'Insurance', 'Chip onto the insurance line'], N: ['wave', 'No insurance', 'Wave it off'],
     DEAL: ['tap', 'Next hand', 'Tap the felt · Space']
   };
@@ -1255,21 +1255,43 @@
     }
     return rev;
   }
+  // Stand: one full back-and-forth (two horizontal strokes) anywhere on the felt.
+  function isWave(pts) {
+    if (pts.length < 4) return false;
+    var xs = pts.map(function (p) { return p.x; }), ys = pts.map(function (p) { return p.y; });
+    var w = Math.max.apply(null, xs) - Math.min.apply(null, xs), h = Math.max.apply(null, ys) - Math.min.apply(null, ys);
+    return reversals(xs, 18) >= 1 && w >= 30 && w > h * 0.6;
+  }
+  // Surrender zone: the chip area of your seat (bet circle down through your chip stack), a little wider than the seat.
+  function chipZone() {
+    var seat = felt.querySelector('.seat.me'); if (!seat) return null;
+    var sr = seat.getBoundingClientRect();
+    var spots = seat.querySelectorAll('.betspot'), top = sr.bottom - 90;
+    if (spots.length) top = Math.min.apply(null, Array.prototype.map.call(spots, function (b) { return b.getBoundingClientRect().top; })) - 12;
+    return { left: sr.left - 50, right: sr.right + 50, top: top, bottom: sr.bottom + 24 };
+  }
+  function inChipZone(pts) {
+    var z = chipZone(); if (!z) return false;
+    var midY = pts.reduce(function (a, p) { return a + p.y; }, 0) / pts.length;
+    var inX = pts.filter(function (p) { return p.x >= z.left && p.x <= z.right; }).length / pts.length;
+    return midY >= z.top && midY <= z.bottom && inX >= 0.6;
+  }
   function classify(pts, dur) {
     var xs = pts.map(function (p) { return p.x; }), ys = pts.map(function (p) { return p.y; });
     var minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs), minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
     var w = maxX - minX, h = maxY - minY, len = 0;
     for (var i = 1; i < pts.length; i++) len += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
     if (len < 16 && dur < 500) return 'tap';
-    var xr = reversals(xs, 22), yr = reversals(ys, 22);
-    if (xr >= 1 && w >= 50 && w > h * 1.1) return 'wave';
+    var xr = reversals(xs, 18), yr = reversals(ys, 22);
+    if (isWave(pts)) return 'wave';
     var low = ys.indexOf(maxY), n = ys.length - 1;
     if (yr === 1 && xr === 0 && maxY - ys[0] > 30 && maxY - ys[n] > 30 && h > w * 0.45 && low > 0 && low < n) return 'v';
-    if (xr === 0 && w >= 80 && h < w * 0.3) return 'line';
+    if (xr === 0 && w >= 50 && h < w * 0.35) return inChipZone(pts) ? 'line' : 'line-away';
     return null;
   }
   var GEST_ACT = { tap: ['DEAL', 'H'], wave: ['S', 'N'], v: ['P'], line: ['R'] };
-  var GEST_WHY = { tap: 'Tap = hit', wave: 'Wave = stand', v: "Can't split this hand", line: 'Surrender is only allowed on your first two cards' };
+  GEST_ACT['line-away'] = [];
+  var GEST_WHY = { tap: 'Tap = hit', wave: 'Wave = stand', v: "Can't split this hand", line: 'Surrender is only allowed on your first two cards', 'line-away': 'To surrender, draw one line behind your chips' };
   felt.addEventListener('pointerdown', function (e) {
     if (e.target.closest('.quiz') || gest) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -1297,6 +1319,9 @@
     }
     var r = gest.rect;
     tctx.beginPath(); tctx.moveTo(last.x - r.left, last.y - r.top); tctx.lineTo(e.clientX - r.left, e.clientY - r.top); tctx.stroke();
+    if (!gest.done && pending && (pending.legal.indexOf('S') >= 0 || pending.legal.indexOf('N') >= 0) && isWave(gest.pts)) {
+      gest.done = true; doAct(pending.legal.indexOf('S') >= 0 ? 'S' : 'N');
+    }
   });
   function endGesture(e, cancelled) {
     if (!gest || e.pointerId !== gest.id) return;
@@ -1313,7 +1338,7 @@
       else if (g.pts.length > 3) toast('Drop the chip on your bet to double', true);
       return;
     }
-    if (cancelled || !pending) return;
+    if (cancelled || g.done || !pending) return;
     var kind = classify(g.pts, performance.now() - g.t0);
     if (!kind) { toast('Not recognized: tap, wave, chip, V or line', true); return; }
     var opts = GEST_ACT[kind];
