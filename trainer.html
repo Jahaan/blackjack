@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Blackjack card-counting trainer: auto-dealt shoe game that grades every decision against basic strategy (6 decks, H17, DAS, late surrender) and periodically quizzes you on the Hi-Lo true count.">
+<meta name="description" content="Blackjack card-counting trainer: auto-dealt shoe game that grades every decision against basic strategy (6 decks, H17, DAS, late surrender) and periodically quizzes you on the Hi-Lo running count.">
 <title>Count Trainer</title>
 <style>
   :root {
@@ -250,6 +250,12 @@
     color: var(--ink); font-family: var(--mono); font-size: 18px; padding: 0 12px;
   }
   .q-field input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .pm-wrap { display: flex; gap: 6px; }
+  .pm {
+    flex: none; width: 46px; height: 42px; border-radius: 9px; border: 1px solid var(--line-strong); background: var(--panel);
+    color: var(--ink); font: 700 18px/1 var(--mono); cursor: pointer;
+  }
+  .pm:active { background: var(--panel-2); }
   .q-result { font-size: 13px; border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; display: none; }
   .q-result.on { display: block; }
   .q-result.good { background: var(--win-bg); }
@@ -443,11 +449,11 @@
         <div class="quiz" id="quiz" role="dialog" aria-modal="true" aria-labelledby="quizTitle">
           <div class="quiz-box">
             <h2 id="quizTitle">Count check</h2>
-            <p id="quizSub">What is the true count right now?</p>
+            <p id="quizSub">What is the running count right now?</p>
             <form id="quizForm" autocomplete="off">
               <div class="q-row">
-                <div class="q-field" id="rcField"><label for="rcIn">Running count</label><input id="rcIn" inputmode="numeric" placeholder="0"></div>
-                <div class="q-field"><label for="tcIn">True count</label><input id="tcIn" inputmode="decimal" placeholder="0"></div>
+                <div class="q-field" id="rcField"><label for="rcIn">Running count</label><div class="pm-wrap"><button type="button" class="pm" data-for="rcIn" aria-label="Toggle minus sign">±</button><input id="rcIn" inputmode="numeric" placeholder="0"></div></div>
+                <div class="q-field" id="tcField"><label for="tcIn">True count</label><div class="pm-wrap"><button type="button" class="pm" data-for="tcIn" aria-label="Toggle minus sign">±</button><input id="tcIn" inputmode="decimal" placeholder="0"></div></div>
               </div>
               <div class="q-result" id="qResult"></div>
               <button class="primary" id="quizBtn" type="submit">Check</button>
@@ -459,7 +465,7 @@
       <div class="actionbar">
         <div class="guide" id="guide" aria-live="polite"></div>
         <div class="acts hidden" id="acts"></div>
-        <div class="feedback" id="feedback"><span class="ic">♠</span><span>Cards are dealt automatically. Play with real table signals on the felt: <b>tap</b> to hit, <b>wave</b> to stand, <b>drag a chip</b> onto your bet to double, draw a <b>V</b> to split, draw a <b>flat line</b> to surrender. Keys <b>H S D P R</b> also work. Keep the running count as you go — you'll be quizzed on the true count between hands.</span></div>
+        <div class="feedback" id="feedback"><span class="ic">♠</span><span>Cards are dealt automatically. Play with real table signals on the felt: <b>tap</b> to hit, <b>wave</b> to stand, <b>drag a chip</b> onto your bet to double, draw a <b>V</b> to split, draw <b>one line behind your chips</b> to surrender. Keys <b>H S D P R</b> also work. Keep the running count as you go — you'll be quizzed on it between hands.</span></div>
         <div class="controls-row">
           <button class="chip-btn" id="pauseBtn" type="button">Pause</button>
           <button class="chip-btn" id="shuffleBtn" type="button">New shoe</button>
@@ -473,7 +479,7 @@
         <div class="sect-label">Session</div>
         <div class="stat-grid">
           <div class="stat"><div class="k">Strategy</div><div class="v" id="sAcc">—</div><div class="sub" id="sAccSub">0 decisions</div></div>
-          <div class="stat"><div class="k">True count</div><div class="v" id="sQuiz">—</div><div class="sub" id="sQuizSub">0 quizzes</div></div>
+          <div class="stat"><div class="k">Count quiz</div><div class="v" id="sQuiz">—</div><div class="sub" id="sQuizSub">0 quizzes</div></div>
           <div class="stat"><div class="k">Hands</div><div class="v" id="sHands">0</div><div class="sub" id="sStreak">Streak 0</div></div>
           <div class="stat"><div class="k">Net units</div><div class="v" id="sNet">0</div><div class="sub" id="sShoe">Shoe 1</div></div>
         </div>
@@ -505,11 +511,12 @@
         <div class="sect-label" style="margin-top:14px">Counting</div>
         <div class="set-row"><label for="setQuiz">Quiz frequency</label>
           <select id="setQuiz"><option value="off">Off</option><option value="1-1">Every hand</option><option value="2-4">Every 2–4 hands</option><option value="4-7">Every 4–7 hands</option><option value="8-12">Every 8–12 hands</option></select></div>
-        <div class="set-row"><label for="setAskRC">Also ask running count</label><span class="switch"><input type="checkbox" id="setAskRC"><span></span></span></div>
+        <div class="set-row"><label for="setQuizType">Quiz asks for</label>
+          <select id="setQuizType"><option value="rc">Running count</option><option value="tc">True count</option><option value="both">Both</option></select></div>
         <div class="set-row"><label for="setDevs">Grade count deviations</label><span class="switch"><input type="checkbox" id="setDevs"><span></span></span></div>
         <div class="set-row"><label for="setButtons">Show action buttons too</label><span class="switch"><input type="checkbox" id="setButtons"><span></span></span></div>
         <div class="set-row"><label for="setShow">Show count (training wheels)</label><span class="switch"><input type="checkbox" id="setShow"><span></span></span></div>
-        <div class="hint">True count = running count ÷ decks remaining. Quiz answers are accepted if they match the exact value rounded, truncated, or within ±0.5. Deviations use the Illustrious 18 &amp; Fab 4 indices.</div>
+        <div class="hint">True count = running count ÷ decks remaining. Running count answers must be exact; true count answers are accepted if rounded, truncated, or within ±0.5. Deviations use the Illustrious 18 &amp; Fab 4 indices.</div>
         <div class="hint"><button class="link-btn" id="resetBtn" type="button">Reset all stats</button></div>
       </div>
     </aside>
@@ -540,10 +547,10 @@
   function load() { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return null; } }
   function save() { try { localStorage.setItem(KEY, JSON.stringify({ settings: settings, stats: stats })); } catch (e) {} }
 
-  var DEFAULT_SETTINGS = { decks: 6, pen: 0.75, bots: 2, seat: 'middle', speed: 'normal', auto: true, quiz: '4-7', askRC: false, devs: false, show: false, buttons: false };
+  var DEFAULT_SETTINGS = { decks: 6, pen: 0.75, bots: 2, seat: 'middle', speed: 'normal', auto: true, quiz: '4-7', quizType: 'rc', devs: false, show: false, buttons: false };
   function freshStats() {
     return { hands: 0, decisions: 0, correct: 0, cats: { hard: [0, 0], soft: [0, 0], pair: [0, 0], ins: [0, 0], dev: [0, 0] },
-      quizzes: 0, quizCorrect: 0, quizErr: 0, rcQ: 0, rcCorrect: 0, net: 0, streak: 0, best: 0, shoes: 1,
+      quizzes: 0, quizCorrect: 0, quizErr: 0, rcQ: 0, rcCorrect: 0, tcQ: 0, tcCorrect: 0, net: 0, streak: 0, best: 0, shoes: 1,
       mistakes: [], leaks: {}, quizLog: [] };
   }
   var saved = load() || {};
@@ -935,44 +942,56 @@
       var q = document.getElementById('quiz'), form = document.getElementById('quizForm');
       var rcIn = document.getElementById('rcIn'), tcIn = document.getElementById('tcIn');
       var out = document.getElementById('qResult'), btn = document.getElementById('quizBtn');
-      document.getElementById('rcField').style.display = settings.askRC ? '' : 'none';
-      document.getElementById('quizSub').textContent = settings.askRC ? 'Enter the running count and the true count.' : 'What is the true count right now? Use the discard tray to estimate decks remaining.';
+      var askRC = settings.quizType !== 'tc', askTC = settings.quizType !== 'rc';
+      document.getElementById('rcField').style.display = askRC ? '' : 'none';
+      document.getElementById('tcField').style.display = askTC ? '' : 'none';
+      document.getElementById('quizSub').textContent = askRC && askTC ? 'Enter the running count and the true count.' :
+        askRC ? 'What is the running count right now?' : 'What is the true count right now? Use the discard tray to estimate decks remaining.';
       rcIn.value = ''; tcIn.value = ''; out.className = 'q-result'; out.innerHTML = '';
       btn.textContent = 'Check';
       q.classList.add('on');
-      setTimeout(function () { (settings.askRC ? rcIn : tcIn).focus(); }, 30);
+      setTimeout(function () { (askRC ? rcIn : tcIn).focus(); }, 30);
       var checked = false;
+      function num(v) { return v.trim().replace(',', '.').replace(/[−–]/g, '-').replace(/^\+/, ''); }
       form.onsubmit = function (e) {
         e.preventDefault();
         if (checked) { q.classList.remove('on'); form.onsubmit = null; res(); return; }
-        var tcAns = parseFloat(tcIn.value.replace(',', '.').replace('−', '-'));
-        if (isNaN(tcAns)) { tcIn.focus(); return; }
-        var rcAns = settings.askRC ? parseInt(rcIn.value.replace('−', '-'), 10) : null;
-        if (settings.askRC && isNaN(rcAns)) { rcIn.focus(); return; }
+        var rcAns = null, tcAns = null;
+        if (askRC) { rcAns = parseInt(num(rcIn.value), 10); if (isNaN(rcAns)) { rcIn.focus(); return; } }
+        if (askTC) { tcAns = parseFloat(num(tcIn.value)); if (isNaN(tcAns)) { tcIn.focus(); return; } }
         checked = true;
         var exact = trueCount(), dl = decksLeft();
-        var okTC = Math.abs(tcAns - exact) <= 0.5 || tcAns === Math.trunc(exact) || tcAns === Math.round(exact) || tcAns === Math.floor(exact);
-        var okRC = settings.askRC ? rcAns === rc : true;
-        stats.quizzes++; if (okTC) stats.quizCorrect++;
-        stats.quizErr += Math.abs(tcAns - exact);
-        if (settings.askRC) { stats.rcQ++; if (okRC) stats.rcCorrect++; }
-        stats.quizLog.unshift({ ans: tcAns, exact: Math.round(exact * 10) / 10, rc: rc, ok: okTC && okRC, rcAns: rcAns, decks: Math.round(dl * 10) / 10 });
+        var okRC = !askRC || rcAns === rc;
+        var okTC = !askTC || Math.abs(tcAns - exact) <= 0.5 || tcAns === Math.trunc(exact) || tcAns === Math.round(exact) || tcAns === Math.floor(exact);
+        var good = okRC && okTC;
+        stats.quizzes++; if (good) stats.quizCorrect++;
+        if (askRC) { stats.rcQ++; if (okRC) stats.rcCorrect++; stats.quizErr += Math.abs(rcAns - rc); }
+        if (askTC) { stats.tcQ = (stats.tcQ || 0) + 1; if (okTC) stats.tcCorrect = (stats.tcCorrect || 0) + 1; }
+        stats.quizLog.unshift({ rcAns: rcAns, tcAns: tcAns, exact: Math.round(exact * 10) / 10, rc: rc, ok: good, decks: Math.round(dl * 10) / 10 });
         stats.quizLog = stats.quizLog.slice(0, 30);
         save(); renderStats();
-        var good = okTC && okRC;
+        var sg = function (x) { return (x > 0 ? '+' : '') + x; };
+        var you = function (x) { return ' <span style="opacity:.6">(you: ' + sg(x) + ')</span>'; };
         out.className = 'q-result on ' + (good ? 'good' : 'bad');
-        out.innerHTML = '<div class="head">' + (good ? '✓ Nice count' : (!okRC ? '✗ Running count is off' : '✗ True count is off')) + '</div>' +
+        out.innerHTML = '<div class="head">' + (good ? '✓ Nice count' : (!okRC ? '✗ Running count is off by ' + Math.abs(rcAns - rc) : '✗ True count is off')) + '</div>' +
           '<table>' +
-          '<tr><td>Running count</td><td>' + (rc > 0 ? '+' : '') + rc + (settings.askRC ? ' <span style="opacity:.6">(you: ' + rcAns + ')</span>' : '') + '</td></tr>' +
+          '<tr><td>Running count</td><td>' + sg(rc) + (askRC ? you(rcAns) : '') + '</td></tr>' +
           '<tr><td>Cards left · decks left</td><td>' + unseen() + ' · ' + dl.toFixed(2) + '</td></tr>' +
-          '<tr><td>True count (exact)</td><td>' + fmtTC(exact) + '</td></tr>' +
-          '<tr><td>Your answer</td><td>' + (tcAns > 0 ? '+' : '') + tcAns + '</td></tr>' +
+          '<tr><td>True count (exact)</td><td>' + fmtTC(exact) + (askTC ? you(tcAns) : '') + '</td></tr>' +
           '</table>';
         btn.textContent = 'Continue';
         btn.focus();
       };
     });
   }
+
+  document.getElementById('quizForm').addEventListener('click', function (e) {
+    var b = e.target.closest('.pm'); if (!b) return;
+    var inp = document.getElementById(b.getAttribute('data-for'));
+    var v = inp.value.trim().replace(/^\+/, '');
+    inp.value = v.charAt(0) === '-' || v.charAt(0) === '−' ? v.slice(1) : '-' + v;
+    inp.focus();
+  });
 
   // ---------- Rendering ----------
   var seenIds = {};
@@ -1109,12 +1128,15 @@
     document.getElementById('sAcc').textContent = pct(stats.correct, stats.decisions);
     document.getElementById('sAccSub').textContent = stats.correct + ' / ' + stats.decisions + ' decisions';
     document.getElementById('sQuiz').textContent = pct(stats.quizCorrect, stats.quizzes);
-    document.getElementById('sQuizSub').textContent = stats.quizzes ? stats.quizzes + ' quizzes · avg off ' + (stats.quizErr / stats.quizzes).toFixed(1) : '0 quizzes';
+    var qs = [];
+    if (stats.rcQ) qs.push('RC ' + pct(stats.rcCorrect, stats.rcQ));
+    if (stats.tcQ) qs.push('TC ' + pct(stats.tcCorrect, stats.tcQ));
+    document.getElementById('sQuizSub').textContent = stats.quizzes ? stats.quizzes + ' quizzes' + (qs.length ? ' · ' + qs.join(' · ') : '') : '0 quizzes';
     document.getElementById('sHands').textContent = stats.hands;
     document.getElementById('sStreak').textContent = 'Streak ' + stats.streak + ' · best ' + stats.best;
     var n = Math.round(stats.net * 10) / 10;
     document.getElementById('sNet').textContent = (n > 0 ? '+' : '') + n;
-    document.getElementById('sShoe').textContent = 'Shoe ' + stats.shoes + (stats.rcQ ? ' · RC ' + pct(stats.rcCorrect, stats.rcQ) : '');
+    document.getElementById('sShoe').textContent = 'Shoe ' + stats.shoes;
     var cats = [['hard', 'Hard'], ['soft', 'Soft'], ['pair', 'Pairs'], ['ins', 'Insurance'], ['dev', 'Index plays']];
     document.getElementById('catRows').innerHTML = cats.filter(function (c) { return c[0] !== 'dev' || settings.devs || stats.cats.dev[1]; }).map(function (c) {
       var v = stats.cats[c[0]];
@@ -1137,7 +1159,12 @@
         '<div class="empty">Spots you miss repeatedly will show up here.</div>';
     } else {
       h = stats.quizLog.slice(0, 10).map(function (q) {
-        return '<div class="item"><span class="l">' + (q.ok ? '✓' : '✗') + ' You ' + (q.ans > 0 ? '+' : '') + q.ans + '</span><span class="r">exact ' + (q.exact > 0 ? '+' : '') + q.exact + ' · RC ' + q.rc + ' / ' + q.decks + 'd</span></div>';
+        var sg = function (x) { return (x > 0 ? '+' : '') + x; };
+        var mine = [];
+        if (q.rcAns != null) mine.push('RC ' + sg(q.rcAns));
+        if (q.tcAns != null) mine.push('TC ' + sg(q.tcAns));
+        if (q.ans != null && q.tcAns == null) mine.push('TC ' + sg(q.ans)); // older entries
+        return '<div class="item"><span class="l">' + (q.ok ? '✓' : '✗') + ' You: ' + mine.join(' · ') + '</span><span class="r">actual RC ' + sg(q.rc) + ' · TC ' + sg(q.exact) + '</span></div>';
       }).join('') || '<div class="empty">Quiz results will show up here.</div>';
     }
     el.innerHTML = h;
@@ -1175,7 +1202,7 @@
   bindSelect('setSpeed', 'speed');
   bindSelect('setQuiz', 'quiz');
   bindSwitch('setAuto', 'auto');
-  bindSwitch('setAskRC', 'askRC');
+  bindSelect('setQuizType', 'quizType');
   bindSwitch('setDevs', 'devs');
   bindSwitch('setShow', 'show');
   bindSwitch('setButtons', 'buttons');
@@ -1192,7 +1219,7 @@
     forceShuffle = true; setFeedback('', '↻', 'A fresh shoe will be shuffled before the next hand.');
   });
   document.getElementById('quizNowBtn').addEventListener('click', function () {
-    quizNext = true; setFeedback('', '?', 'You will be quizzed on the true count after this hand.');
+    quizNext = true; setFeedback('', '?', 'You will be quizzed on the count after this hand.');
   });
   document.getElementById('resetBtn').addEventListener('click', function () {
     if (!confirm('Reset all trainer stats?')) return;

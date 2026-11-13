@@ -23,7 +23,7 @@ A self-contained blackjack expected-value dashboard (single static `index.html`,
 
     Keyboard shortcuts (`H S D P R`, `I`/`N`, `Space`) also work, and on-screen buttons can be re-enabled in settings.
   - Grades every decision against basic strategy for these rules, with an option to grade Illustrious 18 / Fab 4 index plays.
-  - Quizzes you on the true count (and optionally the running count) every few hands; estimate decks left from the discard tray.
+  - Quizzes you on the running count every few hands (switchable to true count or both in settings; estimate decks left from the discard tray for true count).
   - Tracks accuracy by hand type, recent mistakes, repeat leaks and a quiz log (saved in your browser's localStorage).
 - `vercel.json` — static hosting config (clean URLs, no-cache revalidate).
 
