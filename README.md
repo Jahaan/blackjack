@@ -8,6 +8,12 @@ A self-contained blackjack expected-value dashboard (single static `index.html`,
 - `index.html` — the entire app (HTML + CSS + JS inline). A recursive solver computes win/push/lose
   and EV for stand/hit/double/split/surrender, an EV heatmap for every starting hand vs. dealer up card,
   and a Hi-Lo true-count adjustment.
+- `trainer.html` — **Count Trainer.** An auto-dealt shoe game for practicing Hi-Lo counting:
+  - Deals like a real table (2–8 decks, cut card, optional bot players who play basic strategy) and waits for your
+    Hit / Stand / Double / Split / Surrender / Insurance decisions (keyboard: `H S D P R`, `I`/`N`, `Space` for next hand).
+  - Grades every decision against basic strategy for these rules, with an option to grade Illustrious 18 / Fab 4 index plays.
+  - Quizzes you on the true count (and optionally the running count) every few hands; estimate decks left from the discard tray.
+  - Tracks accuracy by hand type, recent mistakes, repeat leaks and a quiz log (saved in your browser's localStorage).
 - `vercel.json` — static hosting config (clean URLs, no-cache revalidate).
 
 ## Deploy on Vercel (Git auto-deploy)
