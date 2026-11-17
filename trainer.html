@@ -239,6 +239,21 @@
   .bet-quick button { width: 36px; height: 36px; border-radius: 50%; border: 3px dashed rgba(255,255,255,.9); background: #c0392b; color: #fff; font: 800 12px/1 var(--mono); cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.3), inset 0 0 0 2px #c0392b; }
   .bet-quick button.on { outline: 3px solid var(--accent); outline-offset: 2px; }
   .bet-deal { height: 44px; padding: 0 22px; border: none; border-radius: 999px; background: var(--accent); color: #1c1608; font: 800 15px/1 var(--sans); cursor: pointer; }
+  .bet-cd {
+    position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); width: 128px; height: 128px; z-index: 4;
+    pointer-events: none; display: none; border-radius: 50%; background: rgba(0,0,0,.45); box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  .bet-cd.on { display: block; }
+  .bet-cd svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+  .bet-cd circle { fill: none; stroke-width: 7; }
+  .bet-cd .trk { stroke: rgba(255,255,255,.15); }
+  .bet-cd .arc { stroke: #f7e7b8; stroke-linecap: round; stroke-dasharray: 276.5; stroke-dashoffset: 0; }
+  .bet-cd .arc.run { animation: cdArc linear forwards; }
+  @keyframes cdArc { to { stroke-dashoffset: 276.5; } }
+  .bet-cd .txt { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; text-align: center; }
+  .bet-cd .txt b { font-size: 34px; line-height: 1; }
+  .bet-cd .txt span { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: rgba(247,231,184,.9); margin-top: 4px; }
+  @media (max-width: 560px) { .bet-cd { width: 108px; height: 108px; } .bet-cd .txt b { font-size: 28px; } }
   .bet-go { display: flex; gap: 8px; justify-content: flex-end; }
   .bet-stop { height: 44px; padding: 0 18px; border-radius: 999px; border: 1.5px solid var(--line-strong); background: var(--panel); color: var(--ink); font: 700 14px/1 var(--sans); cursor: pointer; }
   .bet-stop:hover { border-color: var(--lose); color: var(--lose); }
@@ -477,6 +492,10 @@
         <div class="seats" id="seats"></div>
 
         <canvas class="trail" id="trail"></canvas>
+        <div class="bet-cd" id="betCd" aria-hidden="true">
+          <svg viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="44"/><circle class="arc" id="betCdArc" cx="50" cy="50" r="44"/></svg>
+          <div class="txt"><b id="betCdBet">1</b><span>Tap to stop</span></div>
+        </div>
         <div class="start-ov" id="startOv">
           <h3 id="startTitle"></h3>
           <button class="start-btn" id="startBtn" type="button">Start</button>
@@ -844,11 +863,24 @@
 
   // Betting: the "right" bet is (TC − 1) units, min 1, capped at the spread.
   var betUnits = 1, betHeld = false, betDeadline = 0, betDur = 0;
+  function showCountdown(on) {
+    var cd = document.getElementById('betCd'), arc = document.getElementById('betCdArc');
+    cd.classList.toggle('on', on);
+    arc.classList.remove('run');
+    if (on) {
+      document.getElementById('betCdBet').textContent = betUnits;
+      void arc.getBoundingClientRect(); // restart the animation
+      arc.style.animationDuration = Math.max(0, betDeadline - Date.now()) + 'ms';
+      arc.classList.add('run');
+    }
+  }
   function holdBet() {
     if (!pending || pending.legal.indexOf('BET') < 0 || betHeld) return;
-    pending.stopTimer(); betHeld = true;
-    banner('Auto-deal stopped — set your bet, then Deal');
-    renderGuide(pending.legal);
+    pending.stopTimer(); betHeld = true; showCountdown(false);
+    banner('Stopped — set your bet, then Deal');
+    // update the panel in place (re-rendering would swallow a click that's in progress)
+    var st = document.querySelector('#guide .bet-stop'); if (st) st.style.visibility = 'hidden';
+    var hn = document.querySelector('#guide .bet-hint'); if (hn) hn.textContent = 'Auto-deal stopped. Tap your chip stack to add, the bet circle to take one back · keys 1–9, + / −, Space to deal';
   }
   function rampBet(tc) { return Math.max(1, Math.min(settings.spread, tc - 1)); }
   function setBet(n, silent) {
@@ -862,12 +894,14 @@
     if (!settings.betting) { me.hands[0].bet = 1; return; }
     var autoBet = settings.auto && !paused;
     betHeld = !autoBet;
-    betDur = Math.max(2500, SPEEDS[settings.speed] * 7);
+    betDur = Math.max(800, Math.round(SPEEDS[settings.speed] * 2.7));
     betDeadline = Date.now() + betDur;
     var waiting = waitFor(['BET'], autoBet ? betDur : 0);
     setBet(betUnits, true);
-    banner(autoBet ? 'Dealing… (Stop to change your bet)' : 'Place your bet');
+    showCountdown(autoBet);
+    banner(autoBet ? '' : 'Place your bet');
     await waiting;
+    showCountdown(false);
     betHeld = false;
     banner('');
     var tc = trueCount();
@@ -1198,8 +1232,7 @@
         '<div class="bet-adj"><button type="button" data-bet="-" aria-label="Less">−</button><div class="bet-val"><b>' + betUnits + '</b><span>' + (betUnits === 1 ? 'unit' : 'units') + '</span></div><button type="button" data-bet="+" aria-label="More">+</button></div>' +
         '<div class="bet-quick">' + q.map(function (n) { return '<button type="button" data-bet="' + n + '"' + (n === betUnits ? ' class="on"' : '') + '>' + n + '</button>'; }).join('') + '</div>' +
         '<div class="bet-go">' + (betHeld ? '' : '<button type="button" class="bet-stop" data-bet="stop">Stop</button>') + '<button type="button" class="bet-deal" data-bet="deal">Deal</button></div>' +
-        (betHeld ? '' : '<div class="bet-timer"><i style="animation-duration:' + Math.max(0, betDeadline - Date.now()) + 'ms"></i></div>') +
-        '<div class="bet-hint">' + (betHeld ? 'Auto-deal stopped. ' : 'Deals automatically at this bet — Stop (or Esc) to change it. ') + 'Tap your chip stack to add, the bet circle to take one back · keys 1–9, + / −, Space to deal</div>' +
+        '<div class="bet-hint">' + (betHeld ? 'Auto-deal stopped. ' : 'Dealing at this bet — tap anywhere to stop. ') + 'Tap your chip stack to add, the bet circle to take one back · keys 1–9, + / −, Space to deal</div>' +
         '</div>';
       return;
     }
@@ -1478,7 +1511,14 @@
   var GEST_ACT = { tap: ['DEAL', 'H'], wave: ['S', 'N'], v: ['P'], line: ['R'] };
   GEST_ACT['line-away'] = [];
   var GEST_WHY = { tap: 'Tap = hit', wave: 'Wave = stand', v: "Can't split this hand", line: 'Surrender is only allowed on your first two cards', 'line-away': 'To surrender, draw one line behind your chips' };
+  document.addEventListener('pointerdown', function (e) {
+    if (pending && pending.legal.indexOf('BET') >= 0 && !betHeld) {
+      holdBet();
+      if (!e.target.closest('#guide')) e.stopTimerTap = true; // felt/anywhere: just stop; panel buttons still work
+    }
+  }, true);
   felt.addEventListener('pointerdown', function (e) {
+    if (e.stopTimerTap) { e.preventDefault(); return; }
     if (e.target.closest('.quiz, .start-ov') || gest) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (pending && pending.legal.indexOf('BET') >= 0) {
