@@ -378,6 +378,16 @@
   .list .item .l { font-weight: 600; }
   .list .item .r { color: var(--ink-soft); text-align: right; font-size: 12px; }
   .list .empty { color: var(--ink-faint); font-size: 12.5px; }
+  details.review > summary {
+    list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 8px; user-select: none;
+    font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-faint);
+  }
+  details.review > summary::-webkit-details-marker { display: none; }
+  details.review > summary::after { content: "Show ▸"; margin-left: auto; font-size: 11.5px; letter-spacing: 0; text-transform: none; color: var(--accent-ink); }
+  details.review[open] > summary::after { content: "Hide ▾"; }
+  details.review > summary span { font-weight: 500; letter-spacing: 0; text-transform: none; font-size: 12px; }
+  details.review > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius); }
+  .review-body { padding: 0 18px 16px; }
   .tabs { display: flex; gap: 4px; background: var(--panel-2); padding: 3px; border-radius: 9px; border: 1px solid var(--line); margin-bottom: 10px; }
   .tabs button { flex: 1; border: none; background: transparent; border-radius: 7px; height: 28px; font-size: 12px; font-weight: 600; color: var(--ink-soft); cursor: pointer; }
   .tabs button.on { background: var(--panel); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
@@ -544,14 +554,17 @@
         <div class="cat-rows" id="catRows"></div>
       </div>
 
-      <div class="card pad">
+      <details class="card review" id="reviewCard">
+        <summary class="pad">Review <span>mistakes · leaks · quiz log</span></summary>
+        <div class="review-body">
         <div class="tabs" id="reviewTabs">
           <button type="button" class="on" data-tab="mist">Mistakes</button>
           <button type="button" data-tab="leaks">Leaks</button>
           <button type="button" data-tab="quiz">Quiz log</button>
         </div>
         <div class="list" id="reviewList"></div>
-      </div>
+        </div>
+      </details>
 
       <div class="card pad">
         <div class="sect-label">Table settings</div>
@@ -917,9 +930,7 @@
       var lk = 'Bet sizing'; stats.leaks[lk] = (stats.leaks[lk] || 0) + 1;
     }
     var u = function (n) { return n + (n === 1 ? ' unit' : ' units'); };
-    setFeedback(ok ? 'good' : 'bad', ok ? '✓' : '✗', ok
-      ? 'Bet <b>' + u(betUnits) + '</b> — right for true count ' + fmtTC(tc) + '.'
-      : 'You bet <b>' + u(betUnits) + '</b>. True count was ' + fmtTC(tc) + ', so the ramp says <b>' + u(right) + '</b> (TC − 1, min 1, max ' + settings.spread + ').');
+    if (!ok) setFeedback('bad', '✗', 'You bet <b>' + u(betUnits) + '</b>. True count was ' + fmtTC(tc) + ', so the ramp says <b>' + u(right) + '</b> (TC − 1, min 1, max ' + settings.spread + ').');
     save(); renderStats();
   }
 
@@ -1344,6 +1355,11 @@
     }
     el.innerHTML = h;
   }
+  (function () {
+    var rc = document.getElementById('reviewCard');
+    try { if (localStorage.getItem('trainer-review-open') === '1') rc.open = true; } catch (e) {}
+    rc.addEventListener('toggle', function () { try { localStorage.setItem('trainer-review-open', rc.open ? '1' : '0'); } catch (e) {} });
+  })();
   document.getElementById('reviewTabs').addEventListener('click', function (e) {
     var b = e.target.closest('button[data-tab]'); if (!b) return;
     reviewTab = b.getAttribute('data-tab');
