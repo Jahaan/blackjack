@@ -881,7 +881,7 @@
       var correct = correctPlay(hand.cards, up, legal, trueCount(), settings.devs && seat.me);
       var a;
       if (seat.me) {
-        banner(settings.hideTotals ? 'Your move' : 'Your move — ' + (tt.soft ? 'soft ' : '') + tt.t + ' vs ' + upLabel(up));
+        banner('Your move');
         a = await waitFor(legal);
         banner('');
         grade('play', hand.cards, up, a, correct);
@@ -1243,8 +1243,6 @@
   document.getElementById('totalsBtn').addEventListener('click', function () {
     settings.hideTotals = !settings.hideTotals; save(); syncTotalsBtn();
     if (seats.length) render();
-    var bn = document.getElementById('banner');
-    if (/^Your move/.test(bn.textContent) && settings.hideTotals) bn.textContent = 'Your move';
   });
   syncTotalsBtn();
 
