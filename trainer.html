@@ -239,6 +239,12 @@
   .bet-quick button { width: 36px; height: 36px; border-radius: 50%; border: 3px dashed rgba(255,255,255,.9); background: #c0392b; color: #fff; font: 800 12px/1 var(--mono); cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.3), inset 0 0 0 2px #c0392b; }
   .bet-quick button.on { outline: 3px solid var(--accent); outline-offset: 2px; }
   .bet-deal { height: 44px; padding: 0 22px; border: none; border-radius: 999px; background: var(--accent); color: #1c1608; font: 800 15px/1 var(--sans); cursor: pointer; }
+  .bet-go { display: flex; gap: 8px; justify-content: flex-end; }
+  .bet-stop { height: 44px; padding: 0 18px; border-radius: 999px; border: 1.5px solid var(--line-strong); background: var(--panel); color: var(--ink); font: 700 14px/1 var(--sans); cursor: pointer; }
+  .bet-stop:hover { border-color: var(--lose); color: var(--lose); }
+  .bet-timer { grid-column: 1 / -1; height: 4px; border-radius: 999px; background: var(--panel-2); overflow: hidden; }
+  .bet-timer i { display: block; height: 100%; width: 100%; background: var(--accent); transform-origin: left; animation: betTimer linear forwards; }
+  @keyframes betTimer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
   .bet-hint { grid-column: 1 / -1; font-size: 11.5px; color: var(--ink-faint); text-align: center; margin-top: -2px; }
   @media (max-width: 560px) { .bet-panel { grid-template-columns: 1fr auto; } .bet-quick { grid-column: 1 / -1; grid-row: 2; } .bet-adj button { width: 34px; height: 34px; } }
   .acts.hidden { display: none; }
@@ -761,7 +767,8 @@
   function waitFor(legal, timeoutMs) {
     return new Promise(function (res) {
       var timer = null;
-      pending = { legal: legal, res: function (a) { if (timer) clearTimeout(timer); pending = null; renderActs(); res(a); } };
+      pending = { legal: legal, res: function (a) { if (timer) clearTimeout(timer); pending = null; renderActs(); res(a); },
+        stopTimer: function () { if (timer) { clearTimeout(timer); timer = null; } } };
       if (timeoutMs) timer = setTimeout(function () { if (pending) pending.res('TIMEOUT'); }, timeoutMs);
       renderActs();
     });
@@ -836,9 +843,16 @@
   }
 
   // Betting: the "right" bet is (TC − 1) units, min 1, capped at the spread.
-  var betUnits = 1;
+  var betUnits = 1, betHeld = false, betDeadline = 0, betDur = 0;
+  function holdBet() {
+    if (!pending || pending.legal.indexOf('BET') < 0 || betHeld) return;
+    pending.stopTimer(); betHeld = true;
+    banner('Auto-deal stopped — set your bet, then Deal');
+    renderGuide(pending.legal);
+  }
   function rampBet(tc) { return Math.max(1, Math.min(settings.spread, tc - 1)); }
-  function setBet(n) {
+  function setBet(n, silent) {
+    if (!silent) holdBet();
     betUnits = Math.max(1, Math.min(settings.spread * 2, n));
     var me = mySeat(); if (me) me.hands[0].bet = betUnits;
     render(); renderGuide(pending ? pending.legal : []);
@@ -846,9 +860,15 @@
   async function bettingPhase() {
     var me = mySeat();
     if (!settings.betting) { me.hands[0].bet = 1; return; }
-    setBet(betUnits);
-    banner('Place your bet');
-    await waitFor(['BET']);
+    var autoBet = settings.auto && !paused;
+    betHeld = !autoBet;
+    betDur = Math.max(2500, SPEEDS[settings.speed] * 7);
+    betDeadline = Date.now() + betDur;
+    var waiting = waitFor(['BET'], autoBet ? betDur : 0);
+    setBet(betUnits, true);
+    banner(autoBet ? 'Dealing… (Stop to change your bet)' : 'Place your bet');
+    await waiting;
+    betHeld = false;
     banner('');
     var tc = trueCount();
     var okSet = [rampBet(Math.floor(tc)), rampBet(Math.round(tc))];
@@ -1014,7 +1034,9 @@
       await runQuiz();
       quizNext = false; scheduleQuiz();
     }
-    if (settings.auto && !paused) {
+    if (settings.betting) {
+      await new Promise(function (r) { setTimeout(r, 1800); });
+    } else if (settings.auto && !paused) {
       var a = await waitFor(['DEAL'], Math.max(1400, SPEEDS[settings.speed] * 4.5));
       void a;
     } else {
@@ -1175,8 +1197,9 @@
       g.innerHTML = '<div class="bet-panel">' +
         '<div class="bet-adj"><button type="button" data-bet="-" aria-label="Less">−</button><div class="bet-val"><b>' + betUnits + '</b><span>' + (betUnits === 1 ? 'unit' : 'units') + '</span></div><button type="button" data-bet="+" aria-label="More">+</button></div>' +
         '<div class="bet-quick">' + q.map(function (n) { return '<button type="button" data-bet="' + n + '"' + (n === betUnits ? ' class="on"' : '') + '>' + n + '</button>'; }).join('') + '</div>' +
-        '<button type="button" class="bet-deal" data-bet="deal">Deal</button>' +
-        '<div class="bet-hint">Tap your chip stack to add, tap the bet circle to take one back · keys 1–9, + / −, Space to deal</div>' +
+        '<div class="bet-go">' + (betHeld ? '' : '<button type="button" class="bet-stop" data-bet="stop">Stop</button>') + '<button type="button" class="bet-deal" data-bet="deal">Deal</button></div>' +
+        (betHeld ? '' : '<div class="bet-timer"><i style="animation-duration:' + Math.max(0, betDeadline - Date.now()) + 'ms"></i></div>') +
+        '<div class="bet-hint">' + (betHeld ? 'Auto-deal stopped. ' : 'Deals automatically at this bet — Stop (or Esc) to change it. ') + 'Tap your chip stack to add, the bet circle to take one back · keys 1–9, + / −, Space to deal</div>' +
         '</div>';
       return;
     }
@@ -1215,7 +1238,7 @@
     var bb = e.target.closest('[data-bet]');
     if (bb && pending && pending.legal.indexOf('BET') >= 0) {
       var v = bb.getAttribute('data-bet');
-      if (v === 'deal') act('BET'); else if (v === '+') setBet(betUnits + 1); else if (v === '-') setBet(betUnits - 1); else setBet(+v);
+      if (v === 'deal') act('BET'); else if (v === 'stop') holdBet(); else if (v === '+') setBet(betUnits + 1); else if (v === '-') setBet(betUnits - 1); else setBet(+v);
       return;
     }
     var it = e.target.closest('.g-item[data-a="START"]'); if (it) act('START');
@@ -1232,6 +1255,7 @@
     if ((k === ' ' || k === 'ENTER') && pending && pending.legal.indexOf('START') >= 0) { e.preventDefault(); act('START'); return; }
     if (pending && pending.legal.indexOf('BET') >= 0) {
       if (k === ' ' || k === 'ENTER') { e.preventDefault(); act('BET'); }
+      else if (k === 'ESCAPE' || k === 'X') { e.preventDefault(); holdBet(); }
       else if (/^[1-9]$/.test(k)) setBet(+k);
       else if (k === '0') setBet(10);
       else if (k === '+' || k === '=' || k === 'ARROWUP' || k === 'ARROWRIGHT') { e.preventDefault(); setBet(betUnits + 1); }
@@ -1347,6 +1371,7 @@
     this.classList.toggle('on', paused);
     if (!paused && resumeFn) { var f = resumeFn; resumeFn = null; f(); }
     if (paused && pending && pending.legal.indexOf('DEAL') >= 0) { pending.res('PAUSE'); }
+    if (paused) holdBet();
     renderActs();
   });
   document.getElementById('shuffleBtn').addEventListener('click', function () {
