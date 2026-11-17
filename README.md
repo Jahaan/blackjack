@@ -22,6 +22,9 @@ A self-contained blackjack expected-value dashboard (single static `index.html`,
     | Next hand | Tap the felt |
 
     Keyboard shortcuts (`H S D P R`, `I`/`N`, `Space`) also work, and on-screen buttons can be re-enabled in settings.
+  - Before each hand you place a bet (tap your chip stack / the bet circle, quick chips, or keys 1–9) and it's graded
+    against a Hi-Lo ramp: bet (true count − 1) units, min 1, capped at your spread (1–4, 1–8 or 1–12).
+  - A Start screen appears before the first hand and again whenever the shoe is reshuffled.
   - Grades every decision against basic strategy for these rules, with an option to grade Illustrious 18 / Fab 4 index plays.
   - Quizzes you on the running count every few hands (switchable to true count or both in settings; estimate decks left from the discard tray for true count).
   - Tracks accuracy by hand type, recent mistakes, repeat leaks and a quiz log (saved in your browser's localStorage).

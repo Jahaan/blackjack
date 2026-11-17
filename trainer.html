@@ -229,6 +229,18 @@
   .g-item[data-a="START"]:hover { border-color: var(--accent); }
   .g-item.flash { border-color: var(--accent); background: var(--panel-2); }
   .acts { margin-top: 8px; }
+  .bet-panel { border: 1px solid var(--line-strong); background: var(--panel); border-radius: 12px; padding: 10px 12px; display: grid; grid-template-columns: auto 1fr auto; gap: 10px 14px; align-items: center; }
+  .bet-adj { display: flex; align-items: center; gap: 8px; }
+  .bet-adj button { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line-strong); background: var(--panel-2); color: var(--ink); font: 700 20px/1 var(--sans); cursor: pointer; }
+  .bet-val { min-width: 74px; text-align: center; font-variant-numeric: tabular-nums; }
+  .bet-val b { display: block; font-size: 26px; line-height: 1; }
+  .bet-val span { font-size: 11px; color: var(--ink-faint); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+  .bet-quick { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .bet-quick button { width: 36px; height: 36px; border-radius: 50%; border: 3px dashed rgba(255,255,255,.9); background: #c0392b; color: #fff; font: 800 12px/1 var(--mono); cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.3), inset 0 0 0 2px #c0392b; }
+  .bet-quick button.on { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .bet-deal { height: 44px; padding: 0 22px; border: none; border-radius: 999px; background: var(--accent); color: #1c1608; font: 800 15px/1 var(--sans); cursor: pointer; }
+  .bet-hint { grid-column: 1 / -1; font-size: 11.5px; color: var(--ink-faint); text-align: center; margin-top: -2px; }
+  @media (max-width: 560px) { .bet-panel { grid-template-columns: 1fr auto; } .bet-quick { grid-column: 1 / -1; grid-row: 2; } .bet-adj button { width: 34px; height: 34px; } }
   .acts.hidden { display: none; }
   @media (max-width: 560px) { .g-item span { font-size: 10.5px; } .g-item b { font-size: 12.5px; } .guide { gap: 5px; } }
 
@@ -248,6 +260,7 @@
     height: 56px; min-width: 180px; padding: 0 28px; border: none; border-radius: 999px; background: var(--accent); color: #1c1608;
     font: 800 18px/1 var(--sans); letter-spacing: .02em; cursor: pointer; box-shadow: 0 8px 24px rgba(0,0,0,.35);
   }
+  .start-ov h3 { margin: 0; color: #f7e7b8; font-size: 18px; }
   .start-btn:hover { filter: brightness(1.06); }
   .start-btn:focus-visible { outline: 3px solid #f7e7b8; outline-offset: 3px; }
   .quiz-box {
@@ -459,8 +472,9 @@
 
         <canvas class="trail" id="trail"></canvas>
         <div class="start-ov" id="startOv">
+          <h3 id="startTitle"></h3>
           <button class="start-btn" id="startBtn" type="button">Start</button>
-          <p>Fresh shoe, running count 0. Press Start (or Space) when you're ready for the first hand.</p>
+          <p id="startMsg">Fresh shoe, running count 0. Press Start (or Space) when you're ready for the first hand.</p>
         </div>
         <div class="g-toast" id="gToast"></div>
 
@@ -533,10 +547,14 @@
         <div class="set-row"><label for="setQuizType">Quiz asks for</label>
           <select id="setQuizType"><option value="rc">Running count</option><option value="tc">True count</option><option value="both">Both</option></select></div>
         <div class="set-row"><label for="setDevs">Grade count deviations</label><span class="switch"><input type="checkbox" id="setDevs"><span></span></span></div>
+        <div class="set-row"><label for="setBetting">Bet by the count (graded)</label><span class="switch"><input type="checkbox" id="setBetting"><span></span></span></div>
+        <div class="set-row"><label for="setSpread">Bet spread</label>
+          <select id="setSpread"><option value="4">1–4 units</option><option value="8">1–8 units</option><option value="12">1–12 units</option></select></div>
         <div class="set-row"><label for="setHideTotals">Hide hand totals (real-table mode)</label><span class="switch"><input type="checkbox" id="setHideTotals"><span></span></span></div>
         <div class="set-row"><label for="setButtons">Show action buttons too</label><span class="switch"><input type="checkbox" id="setButtons"><span></span></span></div>
         <div class="set-row"><label for="setShow">Show count (training wheels)</label><span class="switch"><input type="checkbox" id="setShow"><span></span></span></div>
         <div class="hint">True count = running count ÷ decks remaining. Running count answers must be exact; true count answers are accepted if rounded, truncated, or within ±0.5. Deviations use the Illustrious 18 &amp; Fab 4 indices.</div>
+        <div class="hint"><b>Bet ramp:</b> bet (true count − 1) units, minimum 1, up to your spread. TC +2 → 1, +3 → 2, +4 → 3, +5 → 4… Graded on the true count floored or rounded.</div>
         <div class="hint"><button class="link-btn" id="resetBtn" type="button">Reset all stats</button></div>
       </div>
     </aside>
@@ -567,15 +585,16 @@
   function load() { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return null; } }
   function save() { try { localStorage.setItem(KEY, JSON.stringify({ settings: settings, stats: stats })); } catch (e) {} }
 
-  var DEFAULT_SETTINGS = { decks: 6, pen: 0.75, bots: 2, seat: 'middle', speed: 'normal', auto: true, quiz: '4-7', quizType: 'rc', devs: false, show: false, buttons: false, hideTotals: false };
+  var DEFAULT_SETTINGS = { decks: 6, pen: 0.75, bots: 2, seat: 'middle', speed: 'normal', auto: true, quiz: '4-7', quizType: 'rc', devs: false, show: false, buttons: false, hideTotals: false, betting: true, spread: 8 };
   function freshStats() {
-    return { hands: 0, decisions: 0, correct: 0, cats: { hard: [0, 0], soft: [0, 0], pair: [0, 0], ins: [0, 0], dev: [0, 0] },
+    return { hands: 0, decisions: 0, correct: 0, cats: { hard: [0, 0], soft: [0, 0], pair: [0, 0], ins: [0, 0], dev: [0, 0], bet: [0, 0] },
       quizzes: 0, quizCorrect: 0, quizErr: 0, rcQ: 0, rcCorrect: 0, tcQ: 0, tcCorrect: 0, net: 0, streak: 0, best: 0, shoes: 1,
       mistakes: [], leaks: {}, quizLog: [] };
   }
   var saved = load() || {};
   var settings = Object.assign({}, DEFAULT_SETTINGS, saved.settings || {});
   var stats = Object.assign(freshStats(), saved.stats || {});
+  if (!stats.cats.bet) stats.cats.bet = [0, 0];
 
   // ---------- Shoe ----------
   var shoe = [], shoeSize = 0, cutAt = 0, dealtCount = 0, rc = 0, cardId = 0, forceShuffle = false;
@@ -803,16 +822,65 @@
     return L;
   }
 
+  async function waitStart(title, msg) {
+    var ov = document.getElementById('startOv');
+    document.getElementById('startTitle').textContent = title || '';
+    document.getElementById('startTitle').style.display = title ? '' : 'none';
+    document.getElementById('startMsg').textContent = msg;
+    ov.classList.add('on');
+    banner('');
+    var started = waitFor(['START']);
+    setTimeout(function () { try { document.getElementById('startBtn').focus({ preventScroll: true }); } catch (e) {} }, 50);
+    await started;
+    ov.classList.remove('on');
+  }
+
+  // Betting: the "right" bet is (TC − 1) units, min 1, capped at the spread.
+  var betUnits = 1;
+  function rampBet(tc) { return Math.max(1, Math.min(settings.spread, tc - 1)); }
+  function setBet(n) {
+    betUnits = Math.max(1, Math.min(settings.spread * 2, n));
+    var me = mySeat(); if (me) me.hands[0].bet = betUnits;
+    render(); renderGuide(pending ? pending.legal : []);
+  }
+  async function bettingPhase() {
+    var me = mySeat();
+    if (!settings.betting) { me.hands[0].bet = 1; return; }
+    setBet(betUnits);
+    banner('Place your bet');
+    await waitFor(['BET']);
+    banner('');
+    var tc = trueCount();
+    var okSet = [rampBet(Math.floor(tc)), rampBet(Math.round(tc))];
+    var right = rampBet(Math.floor(tc));
+    var ok = okSet.indexOf(betUnits) >= 0;
+    stats.cats.bet[1]++;
+    if (ok) stats.cats.bet[0]++;
+    else {
+      var ctx = 'Bet at TC ' + fmtTC(tc);
+      stats.mistakes.unshift({ ctx: ctx, you: betUnits + 'u', right: right + 'u', dev: false });
+      stats.mistakes = stats.mistakes.slice(0, 30);
+      var lk = 'Bet sizing'; stats.leaks[lk] = (stats.leaks[lk] || 0) + 1;
+    }
+    var u = function (n) { return n + (n === 1 ? ' unit' : ' units'); };
+    setFeedback(ok ? 'good' : 'bad', ok ? '✓' : '✗', ok
+      ? 'Bet <b>' + u(betUnits) + '</b> — right for true count ' + fmtTC(tc) + '.'
+      : 'You bet <b>' + u(betUnits) + '</b>. True count was ' + fmtTC(tc) + ', so the ramp says <b>' + u(right) + '</b> (TC − 1, min 1, max ' + settings.spread + ').');
+    save(); renderStats();
+  }
+
   async function playRound() {
     if (forceShuffle || dealtCount >= cutAt) {
       forceShuffle = false;
       setupSeats(); render();
-      banner('Shuffling a fresh ' + settings.decks + '-deck shoe… running count resets to 0');
+      banner('Shuffling…');
       buildShoe(); stats.shoes++; save(); renderStats(); renderMeters();
-      await step(4);
+      await step(1.5);
+      await waitStart('New shoe', 'The shoe has been reshuffled — running count resets to 0. Press Start (or Space) when you\'re ready.');
     }
     setupSeats(); roundOver = false; activeHand = null;
     banner(''); render();
+    await bettingPhase();
     await step(0.6);
 
     // Deal two rounds
@@ -830,7 +898,7 @@
       var tc = trueCount();
       var right = settings.devs && tc >= 3 ? 'I' : 'N';
       grade('ins', null, up, a, { action: right, basic: 'N', cat: 'ins', dev: right === 'I' ? 'Insurance: take at TC ≥ +3' : null });
-      if (a === 'I') me.ins = 0.5;
+      if (a === 'I') me.ins = me.hands[0].bet / 2;
       banner('');
     }
 
@@ -896,7 +964,7 @@
       else if (a === 'P') {
         var aces = hand.cards[0].r === 'A';
         var second = hand.cards.pop();
-        var nh = newHand([second], { fromSplit: true, splitAces: aces });
+        var nh = newHand([second], { fromSplit: true, splitAces: aces, bet: hand.bet });
         hand.fromSplit = true; hand.splitAces = aces;
         seat.hands.splice(seat.hands.indexOf(hand) + 1, 0, nh);
         render(); await step(0.8);
@@ -1051,7 +1119,7 @@
           '<div class="cards">' + h.cards.map(cardHTML).join('') + '</div>' +
           '<div class="tot-pill">' + (settings.hideTotals ? '' : totLabel(h.cards) + (h.doubled ? ' ×2' : '')) + '</div>' +
           (b ? '<div><span class="badge ' + b[0] + '">' + b[1] + '</span></div>' : '') +
-          (seat.me ? '<div class="betspot' + (h === activeHand && pending && pending.legal.indexOf('D') >= 0 ? ' live' : '') + '"><span class="chip">1</span>' + (h.doubled || h.bet > 1 ? '<span class="chip">1</span>' : '') + '</div>' : '') +
+          (seat.me ? '<div class="betspot' + (h === activeHand && pending && pending.legal.indexOf('D') >= 0 ? ' live' : '') + '"><span class="chip">' + (h.doubled ? h.bet / 2 : h.bet) + '</span>' + (h.doubled ? '<span class="chip">' + h.bet / 2 + '</span>' : '') + '</div>' : '') +
           '</div>';
       });
       html += '</div>' + (seat.me ? '<div class="rack" title="Drag a chip to double (onto your bet) or insure (onto the insurance line)"><span class="chip"></span><span class="chip"></span><span class="chip"></span><span class="chip">1</span></div>' : '') + '</div>';
@@ -1059,7 +1127,7 @@
     document.getElementById('seats').innerHTML = html;
     var me0 = mySeat(), il = document.getElementById('insLine');
     il.classList.toggle('offer', !!(pending && pending.legal.indexOf('I') >= 0));
-    il.innerHTML = 'Insurance pays 2 to 1' + (me0 && me0.ins ? '<span class="chip">½</span>' : '');
+    il.innerHTML = 'Insurance pays 2 to 1' + (me0 && me0.ins ? '<span class="chip">' + me0.ins + '</span>' : '');
     renderMeters();
   }
   function ticksHTML() {
@@ -1101,6 +1169,17 @@
   };
   function renderGuide(legal) {
     var g = document.getElementById('guide');
+    if (legal.indexOf('BET') >= 0) {
+      g.className = 'guide one';
+      var q = [1, 2, 3, 4, 5, 6, 8, 10, 12].filter(function (n) { return n <= settings.spread; });
+      g.innerHTML = '<div class="bet-panel">' +
+        '<div class="bet-adj"><button type="button" data-bet="-" aria-label="Less">−</button><div class="bet-val"><b>' + betUnits + '</b><span>' + (betUnits === 1 ? 'unit' : 'units') + '</span></div><button type="button" data-bet="+" aria-label="More">+</button></div>' +
+        '<div class="bet-quick">' + q.map(function (n) { return '<button type="button" data-bet="' + n + '"' + (n === betUnits ? ' class="on"' : '') + '>' + n + '</button>'; }).join('') + '</div>' +
+        '<button type="button" class="bet-deal" data-bet="deal">Deal</button>' +
+        '<div class="bet-hint">Tap your chip stack to add, tap the bet circle to take one back · keys 1–9, + / −, Space to deal</div>' +
+        '</div>';
+      return;
+    }
     var keys = legal.indexOf('I') >= 0 ? ['I', 'N'] : legal.indexOf('DEAL') >= 0 ? ['DEAL'] : legal.indexOf('START') >= 0 ? ['START'] : ['H', 'S', 'D', 'P', 'R'];
     g.className = 'guide' + (keys.length === 2 ? ' two' : keys.length === 1 ? ' one' : '');
     g.innerHTML = keys.map(function (k) {
@@ -1133,6 +1212,12 @@
     }
   }
   document.getElementById('guide').addEventListener('click', function (e) {
+    var bb = e.target.closest('[data-bet]');
+    if (bb && pending && pending.legal.indexOf('BET') >= 0) {
+      var v = bb.getAttribute('data-bet');
+      if (v === 'deal') act('BET'); else if (v === '+') setBet(betUnits + 1); else if (v === '-') setBet(betUnits - 1); else setBet(+v);
+      return;
+    }
     var it = e.target.closest('.g-item[data-a="START"]'); if (it) act('START');
   });
   document.getElementById('acts').addEventListener('click', function (e) {
@@ -1145,6 +1230,14 @@
     var k = e.key.toUpperCase();
     var map = { H: 'H', S: 'S', D: 'D', P: 'P', R: 'R', I: 'I', N: 'N', Y: 'I', ' ': 'DEAL', ENTER: 'DEAL' };
     if ((k === ' ' || k === 'ENTER') && pending && pending.legal.indexOf('START') >= 0) { e.preventDefault(); act('START'); return; }
+    if (pending && pending.legal.indexOf('BET') >= 0) {
+      if (k === ' ' || k === 'ENTER') { e.preventDefault(); act('BET'); }
+      else if (/^[1-9]$/.test(k)) setBet(+k);
+      else if (k === '0') setBet(10);
+      else if (k === '+' || k === '=' || k === 'ARROWUP' || k === 'ARROWRIGHT') { e.preventDefault(); setBet(betUnits + 1); }
+      else if (k === '-' || k === '_' || k === 'ARROWDOWN' || k === 'ARROWLEFT') { e.preventDefault(); setBet(betUnits - 1); }
+      return;
+    }
     if (map[k] && pending && pending.legal.indexOf(map[k]) >= 0) { e.preventDefault(); act(map[k]); }
   });
 
@@ -1162,7 +1255,7 @@
     var n = Math.round(stats.net * 10) / 10;
     document.getElementById('sNet').textContent = (n > 0 ? '+' : '') + n;
     document.getElementById('sShoe').textContent = 'Shoe ' + stats.shoes;
-    var cats = [['hard', 'Hard'], ['soft', 'Soft'], ['pair', 'Pairs'], ['ins', 'Insurance'], ['dev', 'Index plays']];
+    var cats = [['hard', 'Hard'], ['soft', 'Soft'], ['pair', 'Pairs'], ['ins', 'Insurance'], ['bet', 'Bet size'], ['dev', 'Index plays']];
     document.getElementById('catRows').innerHTML = cats.filter(function (c) { return c[0] !== 'dev' || settings.devs || stats.cats.dev[1]; }).map(function (c) {
       var v = stats.cats[c[0]];
       var p = v[1] ? v[0] / v[1] * 100 : 0;
@@ -1233,6 +1326,8 @@
   bindSwitch('setShow', 'show');
   bindSwitch('setButtons', 'buttons');
   bindSwitch('setHideTotals', 'hideTotals');
+  bindSwitch('setBetting', 'betting');
+  bindSelect('setSpread', 'spread', Number);
   function syncTotalsBtn() {
     var b = document.getElementById('totalsBtn');
     b.textContent = settings.hideTotals ? 'Show totals' : 'Hide totals';
@@ -1361,6 +1456,12 @@
   felt.addEventListener('pointerdown', function (e) {
     if (e.target.closest('.quiz, .start-ov') || gest) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (pending && pending.legal.indexOf('BET') >= 0) {
+      e.preventDefault();
+      if (e.target.closest('.rack')) setBet(betUnits + 1);
+      else if (e.target.closest('.seat.me .betspot')) setBet(betUnits - 1);
+      return;
+    }
     e.preventDefault();
     clearTimeout(fadeTimer); trail.classList.remove('fade');
     gest = { id: e.pointerId, pts: [{ x: e.clientX, y: e.clientY }], t0: performance.now(), chip: !!e.target.closest('.rack'), rect: sizeTrail() };
@@ -1421,14 +1522,8 @@
     document.getElementById('chipDecks').textContent = settings.decks + ' decks';
     buildShoe(); scheduleQuiz();
     setupSeats(); render(); renderStats();
-    var ov = document.getElementById('startOv');
-    ov.classList.add('on');
     document.getElementById('startBtn').addEventListener('click', function () { act('START'); });
-    banner('');
-    var started = waitFor(['START']);
-    setTimeout(function () { try { document.getElementById('startBtn').focus({ preventScroll: true }); } catch (e) {} }, 50);
-    await started;
-    ov.classList.remove('on');
+    await waitStart('', 'Fresh shoe, running count 0. Press Start (or Space) when you\'re ready for the first hand.');
     while (true) {
       if (paused) { banner('Paused'); await new Promise(function (r) { resumeFn = r; }); }
       try { await playRound(); }
