@@ -488,6 +488,7 @@
           <button class="chip-btn" id="pauseBtn" type="button">Pause</button>
           <button class="chip-btn" id="shuffleBtn" type="button">New shoe</button>
           <button class="chip-btn" id="quizNowBtn" type="button">Quiz me next hand</button>
+          <button class="chip-btn" id="totalsBtn" type="button" aria-pressed="false">Hide totals</button>
         </div>
       </div>
     </main>
@@ -532,6 +533,7 @@
         <div class="set-row"><label for="setQuizType">Quiz asks for</label>
           <select id="setQuizType"><option value="rc">Running count</option><option value="tc">True count</option><option value="both">Both</option></select></div>
         <div class="set-row"><label for="setDevs">Grade count deviations</label><span class="switch"><input type="checkbox" id="setDevs"><span></span></span></div>
+        <div class="set-row"><label for="setHideTotals">Hide hand totals (real-table mode)</label><span class="switch"><input type="checkbox" id="setHideTotals"><span></span></span></div>
         <div class="set-row"><label for="setButtons">Show action buttons too</label><span class="switch"><input type="checkbox" id="setButtons"><span></span></span></div>
         <div class="set-row"><label for="setShow">Show count (training wheels)</label><span class="switch"><input type="checkbox" id="setShow"><span></span></span></div>
         <div class="hint">True count = running count ÷ decks remaining. Running count answers must be exact; true count answers are accepted if rounded, truncated, or within ±0.5. Deviations use the Illustrious 18 &amp; Fab 4 indices.</div>
@@ -565,7 +567,7 @@
   function load() { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return null; } }
   function save() { try { localStorage.setItem(KEY, JSON.stringify({ settings: settings, stats: stats })); } catch (e) {} }
 
-  var DEFAULT_SETTINGS = { decks: 6, pen: 0.75, bots: 2, seat: 'middle', speed: 'normal', auto: true, quiz: '4-7', quizType: 'rc', devs: false, show: false, buttons: false };
+  var DEFAULT_SETTINGS = { decks: 6, pen: 0.75, bots: 2, seat: 'middle', speed: 'normal', auto: true, quiz: '4-7', quizType: 'rc', devs: false, show: false, buttons: false, hideTotals: false };
   function freshStats() {
     return { hands: 0, decisions: 0, correct: 0, cats: { hard: [0, 0], soft: [0, 0], pair: [0, 0], ins: [0, 0], dev: [0, 0] },
       quizzes: 0, quizCorrect: 0, quizErr: 0, rcQ: 0, rcCorrect: 0, tcQ: 0, tcCorrect: 0, net: 0, streak: 0, best: 0, shoes: 1,
@@ -879,7 +881,7 @@
       var correct = correctPlay(hand.cards, up, legal, trueCount(), settings.devs && seat.me);
       var a;
       if (seat.me) {
-        banner('Your move — ' + (tt.soft ? 'soft ' : '') + tt.t + ' vs ' + upLabel(up));
+        banner(settings.hideTotals ? 'Your move' : 'Your move — ' + (tt.soft ? 'soft ' : '') + tt.t + ' vs ' + upLabel(up));
         a = await waitFor(legal);
         banner('');
         grade('play', hand.cards, up, a, correct);
@@ -1037,7 +1039,7 @@
       if (dealer.cards[1] && !dealer.cards[1].up) dt = upLabel(cval(dealer.cards[0].r)) === 'A' ? 'A' : String(cval(dealer.cards[0].r));
       else dt = totLabel(dealer.cards);
     }
-    document.getElementById('dealerTot').textContent = dt;
+    document.getElementById('dealerTot').textContent = settings.hideTotals ? '' : dt;
 
     var html = '';
     seats.forEach(function (seat) {
@@ -1047,7 +1049,7 @@
         var b = showBadge ? BADGE[h.result] : null;
         html += '<div class="hand' + (h === activeHand && seat.me ? ' active' : '') + '">' +
           '<div class="cards">' + h.cards.map(cardHTML).join('') + '</div>' +
-          '<div class="tot-pill">' + totLabel(h.cards) + (h.doubled ? ' ×2' : '') + '</div>' +
+          '<div class="tot-pill">' + (settings.hideTotals ? '' : totLabel(h.cards) + (h.doubled ? ' ×2' : '')) + '</div>' +
           (b ? '<div><span class="badge ' + b[0] + '">' + b[1] + '</span></div>' : '') +
           (seat.me ? '<div class="betspot' + (h === activeHand && pending && pending.legal.indexOf('D') >= 0 ? ' live' : '') + '"><span class="chip">1</span>' + (h.doubled || h.bet > 1 ? '<span class="chip">1</span>' : '') + '</div>' : '') +
           '</div>';
@@ -1215,6 +1217,7 @@
     if (key === 'decks' || key === 'pen') { forceShuffle = true; setFeedback('', '↻', 'New shoe settings take effect after this hand (the shoe will be reshuffled).'); }
     if (key === 'bots' || key === 'seat') setFeedback('', '↻', 'Table changes take effect next hand.');
     if (key === 'quiz') scheduleQuiz();
+    if (key === 'hideTotals') { syncTotalsBtn(); if (seats.length) render(); }
     document.getElementById('chipDecks').textContent = settings.decks + ' decks';
     renderMeters(); renderStats(); renderActs();
   }
@@ -1229,6 +1232,21 @@
   bindSwitch('setDevs', 'devs');
   bindSwitch('setShow', 'show');
   bindSwitch('setButtons', 'buttons');
+  bindSwitch('setHideTotals', 'hideTotals');
+  function syncTotalsBtn() {
+    var b = document.getElementById('totalsBtn');
+    b.textContent = settings.hideTotals ? 'Show totals' : 'Hide totals';
+    b.classList.toggle('on', settings.hideTotals);
+    b.setAttribute('aria-pressed', String(settings.hideTotals));
+    document.getElementById('setHideTotals').checked = settings.hideTotals;
+  }
+  document.getElementById('totalsBtn').addEventListener('click', function () {
+    settings.hideTotals = !settings.hideTotals; save(); syncTotalsBtn();
+    if (seats.length) render();
+    var bn = document.getElementById('banner');
+    if (/^Your move/.test(bn.textContent) && settings.hideTotals) bn.textContent = 'Your move';
+  });
+  syncTotalsBtn();
 
   document.getElementById('pauseBtn').addEventListener('click', function () {
     paused = !paused;
