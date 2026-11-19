@@ -593,7 +593,7 @@
         <div class="set-row"><label for="setButtons">Show action buttons too</label><span class="switch"><input type="checkbox" id="setButtons"><span></span></span></div>
         <div class="set-row"><label for="setShow">Show count (training wheels)</label><span class="switch"><input type="checkbox" id="setShow"><span></span></span></div>
         <div class="hint">True count = running count ÷ decks remaining. Running count answers must be exact; true count answers are accepted if rounded, truncated, or within ±0.5. Deviations use the Illustrious 18 &amp; Fab 4 indices.</div>
-        <div class="hint"><b>Bet ramp:</b> bet (true count − 1) units, minimum 1, up to your spread. TC +2 → 1, +3 → 2, +4 → 3, +5 → 4… Graded on the true count floored or rounded.</div>
+        <div class="hint"><b>Bet ramp:</b> bet (true count − 1) units, minimum 1, up to your spread. TC +2 → 1, +3 → 2, +4 → 3, +5 → 4… Graded on the true count floored or rounded; within 1 unit counts as right.</div>
         <div class="hint"><button class="link-btn" id="resetBtn" type="button">Reset all stats</button></div>
       </div>
     </aside>
@@ -634,6 +634,9 @@
   var settings = Object.assign({}, DEFAULT_SETTINGS, saved.settings || {});
   var stats = Object.assign(freshStats(), saved.stats || {});
   if (!stats.cats.bet) stats.cats.bet = [0, 0];
+  // bet sizing is no longer logged as a mistake: drop any old entries
+  stats.mistakes = (stats.mistakes || []).filter(function (m) { return !/^Bet at TC/.test(m.ctx); });
+  if (stats.leaks) delete stats.leaks['Bet sizing'];
 
   // ---------- Shoe ----------
   var shoe = [], shoeSize = 0, cutAt = 0, dealtCount = 0, rc = 0, cardId = 0, forceShuffle = false;
@@ -921,15 +924,10 @@
     var tc = trueCount();
     var okSet = [rampBet(Math.floor(tc)), rampBet(Math.round(tc))];
     var right = rampBet(Math.floor(tc));
-    var ok = okSet.indexOf(betUnits) >= 0;
+    // Close counts: within 1 unit of the ramp (floored or rounded TC) is fine. Bets never go in the mistake log.
+    var ok = okSet.some(function (v) { return Math.abs(betUnits - v) <= 1; });
     stats.cats.bet[1]++;
     if (ok) stats.cats.bet[0]++;
-    else {
-      var ctx = 'Bet at TC ' + fmtTC(tc);
-      stats.mistakes.unshift({ ctx: ctx, you: betUnits + 'u', right: right + 'u', dev: false });
-      stats.mistakes = stats.mistakes.slice(0, 30);
-      var lk = 'Bet sizing'; stats.leaks[lk] = (stats.leaks[lk] || 0) + 1;
-    }
     var u = function (n) { return n + (n === 1 ? ' unit' : ' units'); };
     if (!ok) setFeedback('bad', '✗', 'You bet <b>' + u(betUnits) + '</b>. True count was ' + fmtTC(tc) + ', so the ramp says <b>' + u(right) + '</b> (TC − 1, min 1, max ' + settings.spread + ').');
     save(); renderStats();
@@ -938,6 +936,11 @@
   async function playRound() {
     if (forceShuffle || dealtCount >= cutAt) {
       forceShuffle = false;
+      if (dealtCount > 1 && lastQuizHand !== stats.hands) {
+        banner('Cut card — end of shoe');
+        await step(1);
+        await runQuiz({ final: true });
+      }
       setupSeats(); render();
       banner('Shuffling…');
       buildShoe(); stats.shoes++; save(); renderStats(); renderMeters();
@@ -1093,15 +1096,20 @@
   function fmtTC(x) { var v = Math.round(x * 10) / 10; return (v > 0 ? '+' : '') + v.toFixed(1); }
 
   // ---------- Quiz ----------
-  function runQuiz() {
+  var lastQuizHand = -1;
+  function runQuiz(opts) {
+    opts = opts || {};
     return new Promise(function (res) {
       var q = document.getElementById('quiz'), form = document.getElementById('quizForm');
       var rcIn = document.getElementById('rcIn'), tcIn = document.getElementById('tcIn');
       var out = document.getElementById('qResult'), btn = document.getElementById('quizBtn');
-      var askRC = settings.quizType !== 'tc', askTC = settings.quizType !== 'rc';
+      var askRC = opts.final || settings.quizType !== 'tc', askTC = !opts.final && settings.quizType !== 'rc';
+      lastQuizHand = askRC ? stats.hands : -1; // a running-count answer after this hand counts as the final count
+      document.getElementById('quizTitle').textContent = opts.final ? 'End of shoe — final count' : 'Count check';
       document.getElementById('rcField').style.display = askRC ? '' : 'none';
       document.getElementById('tcField').style.display = askTC ? '' : 'none';
-      document.getElementById('quizSub').textContent = askRC && askTC ? 'Enter the running count and the true count.' :
+      document.getElementById('quizSub').textContent = opts.final ? "The dealer is about to shuffle. What's your final running count for this shoe?" :
+        askRC && askTC ? 'Enter the running count and the true count.' :
         askRC ? 'What is the running count right now?' : 'What is the true count right now? Use the discard tray to estimate decks remaining.';
       rcIn.value = ''; tcIn.value = ''; out.className = 'q-result'; out.innerHTML = '';
       btn.textContent = 'Check';

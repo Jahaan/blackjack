@@ -24,6 +24,8 @@ A self-contained blackjack expected-value dashboard (single static `index.html`,
     Keyboard shortcuts (`H S D P R`, `I`/`N`, `Space`) also work, and on-screen buttons can be re-enabled in settings.
   - Before each hand you place a bet (tap your chip stack / the bet circle, quick chips, or keys 1–9) and it's graded
     against a Hi-Lo ramp: bet (true count − 1) units, min 1, capped at your spread (1–4, 1–8 or 1–12).
+  - Bets within 1 unit of the ramp count as correct, and bet sizing is tracked in its own accuracy bar (not the mistake log).
+  - Before every reshuffle you're asked for your final running count for the shoe, even with regular quizzes off.
   - A Start screen appears before the first hand and again whenever the shoe is reshuffled.
   - Grades every decision against basic strategy for these rules, with an option to grade Illustrious 18 / Fab 4 index plays.
   - Quizzes you on the running count every few hands (switchable to true count or both in settings; estimate decks left from the discard tray for true count).
