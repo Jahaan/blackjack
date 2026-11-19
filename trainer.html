@@ -359,11 +359,40 @@
   .chip-btn:hover { border-color: var(--accent); }
   .chip-btn.on { background: var(--accent); border-color: var(--accent); color: #1c1608; }
 
+  /* Hand history */
+  .hist-card { margin-top: 12px; }
+  .hist-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+  .hist-sum .stat .v { font-size: 19px; }
+  @media (max-width: 560px) { .hist-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .hist-wrap { max-height: 380px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+  table.hist { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  table.hist th { position: sticky; top: 0; background: var(--panel-2); color: var(--ink-faint); font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  table.hist td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; white-space: nowrap; }
+  table.hist td.num, table.hist th.num { text-align: right; font-family: var(--mono); }
+  table.hist th.th2 { white-space: normal; line-height: 1.25; font-family: var(--sans); }
+  table.hist td.mono { font-family: var(--mono); }
+  table.hist tr.shoe-start td { border-top: 2px solid var(--line-strong); }
+  table.hist .bad { color: var(--lose); font-weight: 700; }
+  table.hist .good { color: var(--ink-soft); }
+  table.hist .plus { color: var(--win); font-weight: 700; }
+  table.hist .minus { color: var(--lose); font-weight: 700; }
+  table.hist .muted { color: var(--ink-faint); }
+  @media (max-width: 560px) { table.hist .opt { display: none; } table.hist td, table.hist th { padding: 6px 4px; } table.hist { font-size: 11.5px; } table.hist td.plays { white-space: normal; } table.hist td.plays span { white-space: nowrap; } }
+  .hist-empty { padding: 16px; text-align: center; color: var(--ink-faint); font-size: 12.5px; }
+
   /* Units history chart */
-  .units-card { --series-1: #2a78d6; }
+  .units-card { --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; }
   .units-body { position: relative; }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .units-card { --series-1: #3987e5; } }
-  :root[data-theme="dark"] .units-card { --series-1: #3987e5; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .units-card { --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; } }
+  :root[data-theme="dark"] .units-card { --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; }
+  .units-chart .ln3 { fill: none; stroke: var(--series-3); stroke-width: 2; stroke-dasharray: 5 4; stroke-linejoin: round; stroke-linecap: round; }
+  .units-chart .end3, .units-chart .hdot3 { fill: var(--series-3); stroke: var(--panel); stroke-width: 2; }
+  .units-legend i.dash { background: repeating-linear-gradient(90deg, var(--series-3) 0 5px, transparent 5px 8px) !important; }
+  .units-chart .ln2 { fill: none; stroke: var(--series-2); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .units-chart .end2 { fill: var(--series-2); stroke: var(--panel); stroke-width: 2; }
+  .units-chart .hdot2 { fill: var(--series-2); stroke: var(--panel); stroke-width: 2; }
+  .units-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11.5px; color: var(--ink-soft); margin: 0 0 6px; }
+  .units-legend i { display: inline-block; width: 14px; height: 2px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
   .units-card summary span { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink-faint); margin-left: 4px; }
   .units-chart { position: relative; height: 140px; touch-action: pan-y; }
   .units-chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
@@ -376,7 +405,7 @@
   .units-chart .hdot { fill: var(--series-1); stroke: var(--panel); stroke-width: 2; }
   .units-empty { height: 100%; display: grid; place-items: center; color: var(--ink-faint); font-size: 12.5px; text-align: center; }
   .units-tip {
-    position: absolute; pointer-events: none; display: none; background: var(--ink); color: var(--panel); border-radius: 7px;
+    position: absolute; pointer-events: none; display: none; max-width: 92%; white-space: normal !important; text-align: center; background: var(--ink); color: var(--panel); border-radius: 7px;
     padding: 4px 8px; font: 600 11.5px/1.3 var(--mono); white-space: nowrap; transform: translate(-50%, -100%); z-index: 2;
   }
   .units-tip.on { display: block; }
@@ -556,6 +585,15 @@
         <div class="guide" id="guide" aria-live="polite"></div>
         <div class="acts hidden" id="acts"></div>
         <div class="feedback" id="feedback"><span class="ic">♠</span><span>Cards are dealt automatically. Play with real table signals on the felt: <b>tap</b> to hit, <b>wave</b> to stand, <b>drag a chip</b> onto your bet to double, draw a <b>V</b> to split, draw <b>one line behind your chips</b> to surrender. Keys <b>H S D P R</b> also work. Keep the running count as you go — you'll be quizzed on it between hands.</span></div>
+        <details class="card review hist-card" id="histCard">
+          <summary class="pad">Hand history <span id="histSub">actual vs theoretical</span></summary>
+          <div class="review-body">
+            <div class="hist-sum" id="histSum"></div>
+            <div class="hist-filter tabs" id="histFilter"><button type="button" class="on" data-f="all">All hands</button><button type="button" data-f="miss">With mistakes</button><button type="button" data-f="big">Big bets</button></div>
+            <div class="hist-wrap"><table class="hist" id="histTable"></table></div>
+            <div class="hint"><b>Theo · your play</b> = your bet × your edge at that true count (≈ −0.55% + 0.5% per TC), minus the expected cost of each misplay. <b>Theo · perfect</b> = the ramp's bet × the same edge, with every play right. Actual − your play is luck; your play − perfect is what bet sizing and misplays cost. Misplay costs use a standard blackjack calculator for these rules and don't account for the count.</div>
+          </div>
+        </details>
         <div class="controls-row">
           <button class="chip-btn" id="pauseBtn" type="button">Pause</button>
           <button class="chip-btn" id="shuffleBtn" type="button">New shoe</button>
@@ -580,6 +618,7 @@
       <details class="card review units-card" id="unitsCard">
         <summary class="pad">Net units <span id="unitsSub"></span></summary>
         <div class="review-body units-body">
+          <div class="units-legend" id="unitsLegend"></div>
           <div class="units-chart" id="unitsChart" role="img" aria-label="Net units over hands"></div>
           <div class="units-tip" id="unitsTip" role="status"></div>
         </div>
@@ -658,7 +697,7 @@
   function freshStats() {
     return { hands: 0, decisions: 0, correct: 0, cats: { hard: [0, 0], soft: [0, 0], pair: [0, 0], ins: [0, 0], dev: [0, 0], bet: [0, 0] },
       quizzes: 0, quizCorrect: 0, quizErr: 0, rcQ: 0, rcCorrect: 0, tcQ: 0, tcCorrect: 0, net: 0, streak: 0, best: 0, shoes: 1,
-      mistakes: [], leaks: {}, quizLog: [], history: [] };
+      mistakes: [], leaks: {}, quizLog: [], history: [], evHistory: [], evpHistory: [], handLog: [], ev: 0, evp: 0 };
   }
   var saved = load() || {};
   var settings = Object.assign({}, DEFAULT_SETTINGS, saved.settings || {});
@@ -847,6 +886,8 @@
   var lastFeedback = null;
   function grade(kind, cards, u, chosen, correct) {
     var ok = chosen === correct.action;
+    if (curLog) curLog.plays.push({ ctx: kind === 'ins' ? 'Insurance' : ctxLabel(cards, u), you: chosen, right: correct.action, ok: ok, dev: !!correct.dev,
+      cost: Math.round(misplayCost(kind, cards, u, chosen, correct.action) * 1000) / 1000 });
     stats.decisions++;
     var cat = kind === 'ins' ? 'ins' : (correct.dev ? 'dev' : correct.cat);
     stats.cats[cat][1]++;
@@ -909,6 +950,105 @@
   }
 
   // Betting: the "right" bet is (TC − 1) units, min 1, capped at the spread.
+  // ---------- EV model for pricing misplays ----------
+  // Infinite-deck approximation for these rules: dealer hits soft 17 and has peeked for blackjack.
+  // Returns EV per unit of the hand's bet for each action; used to charge the cost of a misplay.
+  var CARD_P = { 2: 1 / 13, 3: 1 / 13, 4: 1 / 13, 5: 1 / 13, 6: 1 / 13, 7: 1 / 13, 8: 1 / 13, 9: 1 / 13, 10: 4 / 13, 11: 1 / 13 };
+  var CARD_V = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+  function addCard(t, soft, c) {
+    if (c === 11) { if (t + 11 <= 21) return [t + 11, true]; t += 1; }
+    else t += c;
+    if (t > 21 && soft) { t -= 10; soft = false; }
+    return [t, soft];
+  }
+  var dealerCache = {};
+  function dealerDist(up) {                          // {17..21, bust} given no dealer blackjack
+    if (dealerCache[up]) return dealerCache[up];
+    var memo = {};
+    function go(t, soft, first) {
+      var key = t + (soft ? 's' : 'h') + (first ? 'f' : '');
+      if (memo[key]) return memo[key];
+      var out = { 17: 0, 18: 0, 19: 0, 20: 0, 21: 0, bust: 0 };
+      if (t > 21) { out.bust = 1; return out; }
+      if (t > 17 || (t === 17 && !soft)) { out[t] = 1; return memo[key] = out; }
+      var cards = CARD_V.filter(function (c) { return !(first && ((up === 10 && c === 11) || (up === 11 && c === 10))); });
+      var norm = cards.reduce(function (a, c) { return a + CARD_P[c]; }, 0);
+      cards.forEach(function (c) {
+        var n = addCard(t, soft, c), sub = go(n[0], n[1], false), pc = CARD_P[c] / norm;
+        Object.keys(out).forEach(function (k) { out[k] += pc * sub[k]; });
+      });
+      return memo[key] = out;
+    }
+    return dealerCache[up] = go(up, up === 11, true);
+  }
+  var evCache = {};
+  function evModel(up) {
+    if (evCache[up]) return evCache[up];
+    var D = dealerDist(up), stMemo = {}, bestMemo = {}, bestDMemo = {};
+    function stand(t) {
+      if (t > 21) return -1;
+      if (stMemo[t] !== undefined) return stMemo[t];
+      var ev = D.bust;
+      [17, 18, 19, 20, 21].forEach(function (d) { ev += d < t ? D[d] : d > t ? -D[d] : 0; });
+      return stMemo[t] = ev;
+    }
+    function hit(t, soft) {
+      var ev = 0;
+      CARD_V.forEach(function (c) { var n = addCard(t, soft, c); ev += CARD_P[c] * best(n[0], n[1]); });
+      return ev;
+    }
+    function best(t, soft) {                         // after hitting: stand or hit
+      if (t > 21) return -1;
+      var k = t + (soft ? 's' : 'h');
+      if (bestMemo[k] !== undefined) return bestMemo[k];
+      bestMemo[k] = stand(t);                        // guard
+      return bestMemo[k] = Math.max(stand(t), hit(t, soft));
+    }
+    function dbl(t, soft) {
+      var ev = 0;
+      CARD_V.forEach(function (c) { var n = addCard(t, soft, c); ev += CARD_P[c] * stand(n[0]); });
+      return 2 * ev;
+    }
+    function bestD(t, soft) {                        // two-card hand: may double
+      var k = t + (soft ? 's' : 'h');
+      if (bestDMemo[k] !== undefined) return bestDMemo[k];
+      return bestDMemo[k] = Math.max(stand(t), hit(t, soft), dbl(t, soft));
+    }
+    function split(v) {
+      var ev = 0;
+      CARD_V.forEach(function (c) {
+        var n = addCard(v, v === 11, c);
+        ev += CARD_P[c] * (v === 11 ? stand(n[0]) : bestD(n[0], n[1]));
+      });
+      return 2 * ev;
+    }
+    return evCache[up] = { stand: stand, hit: hit, dbl: dbl, split: split };
+  }
+  function actionEV(cards, up, a) {
+    var tt = total(cards), m = evModel(up);
+    if (a === 'S') return m.stand(tt.t);
+    if (a === 'H') return m.hit(tt.t, tt.soft);
+    if (a === 'D') return m.dbl(tt.t, tt.soft);
+    if (a === 'R') return -0.5;
+    if (a === 'P') return m.split(cval(cards[0].r));
+    return 0;
+  }
+  // Insurance EV per unit insured: pays 2:1 when the hole card is a ten. Ten density rises with the count
+  // (break-even near TC +3).
+  function insuranceEV(tc) { var p10 = 4 / 13 + 0.00855 * tc; return 3 * p10 - 1; }
+  var gctx = null;                                   // bet in play at the decision being graded
+  function misplayCost(kind, cards, up, chosen, right) {
+    if (chosen === right || !gctx) return 0;
+    if (kind === 'ins') {
+      var e = insuranceEV(trueCount()), stake = gctx.bet / 2;
+      return Math.max(0, (right === 'I' ? e : -e) * stake);
+    }
+    return Math.max(0, gctx.bet * (actionEV(cards, up, right) - actionEV(cards, up, chosen)));
+  }
+
+  var curLog = null, lastBetOk = null;
+  // Theoretical edge for these rules (6D, H17, DAS, LS, 3:2): about -0.55% off the top, +0.5% per true count.
+  function edgeAt(tc) { return -0.0055 + 0.005 * tc; }
   var betUnits = 1, betHeld = false, betDeadline = 0, betDur = 0;
   function showCountdown(on) {
     var cd = document.getElementById('betCd'), arc = document.getElementById('betCdArc');
@@ -938,6 +1078,7 @@
   }
   async function bettingPhase() {
     var me = mySeat();
+    lastBetOk = null;
     if (!settings.betting) { me.hands[0].bet = 1; return; }
     var autoBet = settings.auto && !paused;
     betHeld = !autoBet;
@@ -959,6 +1100,7 @@
     var ok = okSet.some(function (v) { return Math.abs(betUnits - v) <= (v >= 4 ? 2 : 1); });
     stats.cats.bet[1]++;
     if (ok) stats.cats.bet[0]++;
+    lastBetOk = ok;
     var u = function (n) { return n + (n === 1 ? ' unit' : ' units'); };
     if (!ok) setFeedback('bad', '✗', 'You bet <b>' + u(betUnits) + '</b>. True count was ' + fmtTC(tc) + ', so the ramp says <b>' + u(right) + '</b> (TC − 1, min 1, max ' + settings.spread + ').');
     save(); renderStats();
@@ -974,13 +1116,16 @@
       }
       setupSeats(); render();
       banner('Shuffling…');
-      buildShoe(); stats.shoes++; save(); renderStats(); renderMeters();
+      buildShoe(); stats.shoes++; betUnits = 1; save(); renderStats(); renderMeters();
       await step(1.5);
       await waitStart('New shoe', 'The shoe has been reshuffled — running count resets to 0. Press Start (or Space) when you\'re ready.');
     }
     setupSeats(); roundOver = false; activeHand = null;
     banner(''); render();
     await bettingPhase();
+    var tc0 = trueCount(), me0 = mySeat();
+    curLog = { n: stats.hands + 1, shoe: stats.shoes, tc: Math.round(tc0 * 10) / 10, rc: rc, bet: me0.hands[0].bet,
+      ramp: settings.betting ? rampBet(Math.floor(tc0)) : null, betOk: lastBetOk, plays: [], netBefore: stats.net };
     await step(0.6);
 
     // Deal two rounds
@@ -997,6 +1142,7 @@
       var a = await waitFor(['I', 'N']);
       var tc = trueCount();
       var right = settings.devs && tc >= 3 ? 'I' : 'N';
+      gctx = { bet: me.hands[0].bet };
       grade('ins', null, up, a, { action: right, basic: 'N', cat: 'ins', dev: right === 'I' ? 'Insurance: take at TC ≥ +3' : null });
       if (a === 'I') me.ins = me.hands[0].bet / 2;
       banner('');
@@ -1052,6 +1198,7 @@
         banner('Your move');
         a = await waitFor(legal);
         banner('');
+        gctx = { bet: hand.bet };
         grade('play', hand.cards, up, a, correct);
       } else {
         await step(1.1);
@@ -1099,6 +1246,35 @@
     stats.history = stats.history || [];
     stats.history.push(Math.round(stats.net * 10) / 10);
     if (stats.history.length > 2000) stats.history = stats.history.slice(-2000);
+    if (curLog) {
+      var cs = function (cards) { return cards.map(function (c) { return c.r; }).join(' '); };
+      var edge = edgeAt(curLog.tc);
+      var cost = curLog.plays.reduce(function (a, pl) { return a + (pl.cost || 0); }, 0);
+      var ev = curLog.bet * edge - cost;                                  // your bet, your plays
+      var evp = (curLog.ramp != null ? curLog.ramp : curLog.bet) * edge;  // ramp bet, perfect plays
+      stats.ev = (stats.ev || 0) + ev;
+      stats.evp = (stats.evp || 0) + evp;
+      var rec = {
+        n: curLog.n, shoe: curLog.shoe, tc: curLog.tc, rc: curLog.rc, bet: curLog.bet, ramp: curLog.ramp, betOk: curLog.betOk,
+        you: me.hands.map(function (h) { return cs(h.cards) + (h.doubled ? ' ×2' : ''); }),
+        res: me.hands.map(function (h) { return h.result; }),
+        dealer: cs(dealer.cards), plays: curLog.plays,
+        actual: Math.round((stats.net - curLog.netBefore) * 100) / 100, ev: Math.round(ev * 1000) / 1000,
+        evp: Math.round(evp * 1000) / 1000, cost: Math.round(cost * 1000) / 1000
+      };
+      stats.handLog = stats.handLog || [];
+      stats.handLog.push(rec);
+      if (stats.handLog.length > 1000) stats.handLog = stats.handLog.slice(-1000);
+      stats.evHistory = stats.evHistory || [];
+      while (stats.evHistory.length < stats.history.length - 1) stats.evHistory.unshift(null); // older hands had no EV
+      stats.evHistory.push(Math.round(ev * 1000) / 1000);
+      if (stats.evHistory.length > stats.history.length) stats.evHistory = stats.evHistory.slice(-stats.history.length);
+      stats.evpHistory = stats.evpHistory || [];
+      while (stats.evpHistory.length < stats.history.length - 1) stats.evpHistory.unshift(null);
+      stats.evpHistory.push(Math.round(evp * 1000) / 1000);
+      if (stats.evpHistory.length > stats.history.length) stats.evpHistory = stats.evpHistory.slice(-stats.history.length);
+      curLog = null;
+    }
     if (handsToQuiz !== Infinity) handsToQuiz--;
     render(); renderStats(); save();
   }
@@ -1353,6 +1529,71 @@
   });
 
   function pct(a, b) { return b ? Math.round(a / b * 100) + '%' : '—'; }
+  // ---------- Hand history ----------
+  var histFilter = 'all';
+  var SHORT = { H: 'Hit', S: 'Stand', D: 'Double', P: 'Split', R: 'Surr', I: 'Ins', N: 'No ins' };
+  var RES = { win: 'Win', lose: 'Lose', bust: 'Bust', push: 'Push', bj: 'BJ', sur: 'Surr' };
+  function sgn(x, d) { var v = Math.round(x * Math.pow(10, d)) / Math.pow(10, d); return (v > 0 ? '+' : '') + v.toFixed(d); }
+  function renderHistory() {
+    var card = document.getElementById('histCard');
+    var log = stats.handLog || [];
+    var act = 0, ev = 0, evp = 0, n = log.length, betN = 0, betOk = 0, plays = 0, playsOk = 0;
+    log.forEach(function (h) {
+      act += h.actual; ev += h.ev; evp += (h.evp !== undefined ? h.evp : h.ev);
+      if (h.betOk !== null && h.betOk !== undefined) { betN++; if (h.betOk) betOk++; }
+      h.plays.forEach(function (p) { plays++; if (p.ok) playsOk++; });
+    });
+    document.getElementById('histSub').textContent = n ? n + (n === 1 ? ' hand' : ' hands') + ' · actual ' + sgn(act, 1) + ' · your play ' + sgn(ev, 2) + ' · perfect ' + sgn(evp, 2) : 'actual vs theoretical';
+    if (!card.open) return;
+    document.getElementById('histSum').innerHTML =
+      '<div class="stat"><div class="k">Actual</div><div class="v">' + sgn(act, 1) + '</div><div class="sub">units won/lost</div></div>' +
+      '<div class="stat"><div class="k">Theo · your play</div><div class="v">' + sgn(ev, 2) + '</div><div class="sub">your bets &amp; plays</div></div>' +
+      '<div class="stat"><div class="k">Theo · perfect</div><div class="v">' + sgn(evp, 2) + '</div><div class="sub">ramp bets, no misplays</div></div>' +
+      '<div class="stat"><div class="k">Luck</div><div class="v">' + sgn(act - ev, 1) + '</div><div class="sub">actual − your play</div></div>' +
+      '<div class="stat"><div class="k">Mistakes cost</div><div class="v">' + sgn(ev - evp, 2) + '</div><div class="sub">your play − perfect</div></div>' +
+      '<div class="stat"><div class="k">Accuracy</div><div class="v">' + (plays ? Math.round(playsOk / plays * 100) + '%' : '—') + '</div><div class="sub">plays' + (betN ? ' · bets ' + Math.round(betOk / betN * 100) + '%' : '') + '</div></div>';
+    var rows = log.slice().reverse().filter(function (h) {
+      if (histFilter === 'miss') return h.betOk === false || h.plays.some(function (p) { return !p.ok; });
+      if (histFilter === 'big') return h.bet >= 3;
+      return true;
+    });
+    var tbl = document.getElementById('histTable');
+    if (!rows.length) { tbl.innerHTML = '<tr><td class="hist-empty">' + (n ? 'No hands match this filter.' : 'Hands you play will be listed here.') + '</td></tr>'; return; }
+    var html = '<tr><th class="num opt">#</th><th class="num">TC</th><th class="num">Bet</th><th class="opt">You</th><th class="opt">Dealer</th><th>Plays</th><th class="opt">Result</th><th class="num">Actual</th><th class="num th2" title="Theoretical: your bet and plays">Theo<br>you</th><th class="num th2" title="Theoretical: ramp bet, perfect plays">Theo<br>perfect</th></tr>';
+    var prevShoe = null;
+    rows.slice(0, 300).forEach(function (h) {
+      var plays = h.plays.map(function (p) {
+        return p.ok ? '<span class="good">' + SHORT[p.you] + '</span>' : '<span class="bad" title="' + esc(p.ctx) + '">' + SHORT[p.you] + '→' + SHORT[p.right] + '</span>';
+      }).join(', ') || '<span class="muted">—</span>';
+      var bet = h.bet + (h.ramp != null && !h.betOk ? ' <span class="bad" title="Ramp said ' + h.ramp + '">(' + h.ramp + ')</span>' : '');
+      html += '<tr' + (prevShoe !== null && h.shoe !== prevShoe ? ' class="shoe-start"' : '') + '>' +
+        '<td class="num muted opt">' + h.n + '</td>' +
+        '<td class="num">' + sgn(h.tc, 1) + '</td>' +
+        '<td class="num">' + bet + '</td>' +
+        '<td class="mono opt">' + h.you.map(esc).join(' | ') + '</td>' +
+        '<td class="mono opt">' + esc(h.dealer) + '</td>' +
+        '<td class="plays">' + plays + '</td>' +
+        '<td class="opt">' + h.res.map(function (r) { return RES[r] || r; }).join(', ') + '</td>' +
+        '<td class="num ' + (h.actual > 0 ? 'plus' : h.actual < 0 ? 'minus' : 'muted') + '">' + sgn(h.actual, 1) + '</td>' +
+        '<td class="num muted"' + (h.cost ? ' title="Misplays cost ' + h.cost.toFixed(3) + '"' : '') + '>' + sgn(h.ev, 2) + '</td>' +
+        '<td class="num muted">' + sgn(h.evp !== undefined ? h.evp : h.ev, 2) + '</td></tr>';
+      prevShoe = h.shoe;
+    });
+    if (rows.length > 300) html += '<tr><td colspan="10" class="hist-empty">Showing the latest 300 of ' + rows.length + '.</td></tr>';
+    tbl.innerHTML = html;
+  }
+  (function () {
+    var card = document.getElementById('histCard');
+    try { if (localStorage.getItem('trainer-hist-open') === '1') card.open = true; } catch (e) {}
+    card.addEventListener('toggle', function () { try { localStorage.setItem('trainer-hist-open', card.open ? '1' : '0'); } catch (e) {} renderHistory(); });
+    document.getElementById('histFilter').addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-f]'); if (!b) return;
+      histFilter = b.getAttribute('data-f');
+      Array.prototype.forEach.call(this.children, function (x) { x.classList.toggle('on', x === b); });
+      renderHistory();
+    });
+  })();
+
   // ---------- Net units chart ----------
   var unitsPts = [];
   function renderUnits() {
@@ -1363,13 +1604,38 @@
     sub.textContent = n ? 'over ' + n + (n === 1 ? ' hand' : ' hands') : '';
     if (!document.getElementById('unitsCard').open) { unitsPts = []; return; }
     if (n < 2) { host.innerHTML = '<div class="units-empty">Play a few hands to see your units over time.</div>'; unitsPts = []; return; }
+    function cumSeries(evh) {                         // per-hand EVs -> cumulative line anchored to the actual line
+      if (!evh || !evh.some(function (v) { return v !== null; })) return null;
+      var out = new Array(n + 1).fill(null), off = n - evh.length, started = false, acc = 0;
+      for (var k = 0; k < evh.length; k++) {
+        var idx = off + k + 1;
+        if (idx < 1 || evh[k] === null) continue;
+        if (!started) { started = true; acc = data[idx - 1]; out[idx - 1] = acc; }
+        acc += evh[k]; out[idx] = Math.round(acc * 1000) / 1000;
+      }
+      return out;
+    }
+    var exp = cumSeries(stats.evHistory), expP = cumSeries(stats.evpHistory);
+    document.getElementById('unitsLegend').innerHTML = exp ?
+      '<span><i style="background:var(--series-1)"></i>Actual</span><span><i style="background:var(--series-2)"></i>Theo · your play</span>' +
+      (expP ? '<span><i class="dash"></i>Theo · perfect</span>' : '') : '';
     var W = host.clientWidth || 280, H = host.clientHeight || 140;
     var padL = 30, padR = 44, padT = 10, padB = 18;
-    var lo = Math.min(0, Math.min.apply(null, data)), hi = Math.max(0, Math.max.apply(null, data));
+    var all = data.concat((exp || []).filter(function (v) { return v !== null; }), (expP || []).filter(function (v) { return v !== null; }));
+    var lo = Math.min(0, Math.min.apply(null, all)), hi = Math.max(0, Math.max.apply(null, all));
     if (hi - lo < 4) { var mid = (hi + lo) / 2; lo = Math.min(lo, mid - 2); hi = Math.max(hi, mid + 2); }
     var x = function (i) { return padL + (W - padL - padR) * i / n; };
     var y = function (v) { return padT + (H - padT - padB) * (hi - v) / (hi - lo); };
-    unitsPts = data.map(function (v, i) { return { i: i, v: v, x: x(i), y: y(v) }; });
+    unitsPts = data.map(function (v, i) {
+      return { i: i, v: v, x: x(i), y: y(v), e: exp ? exp[i] : null, ey: exp && exp[i] !== null ? y(exp[i]) : null,
+        p: expP ? expP[i] : null, py: expP && expP[i] !== null ? y(expP[i]) : null };
+    });
+    function pathOf(key, ykey) {
+      var out = '', pen = false;
+      unitsPts.forEach(function (p) { if (p[key] === null) { pen = false; return; } out += (pen ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p[ykey].toFixed(1); pen = true; });
+      return out;
+    }
+    var d2 = exp ? pathOf('e', 'ey') : '', d3 = expP ? pathOf('p', 'py') : '';
     var d = unitsPts.map(function (p, i) { return (i ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1); }).join('');
     var last = unitsPts[n];
     var fmt = function (v) { v = Math.round(v * 10) / 10; return (v > 0 ? '+' : '') + v; };
@@ -1382,11 +1648,24 @@
       (loLbl !== 0 && y(lo) - y(0) > 16 ? '<text class="ax" x="' + (padL - 6) + '" y="' + (H - padB) + '" text-anchor="end">' + fmt(loLbl) + '</text>' : '') +
       '<text class="ax" x="' + padL + '" y="' + (H - 3) + '">hand 0</text>' +
       '<text class="ax" x="' + (W - padR) + '" y="' + (H - 3) + '" text-anchor="end">' + n + '</text>' +
+      (d3 ? '<path class="ln3" d="' + d3 + '"/>' : '') +
+      (d2 ? '<path class="ln2" d="' + d2 + '"/>' : '') +
       '<path class="ln" d="' + d + '"/>' +
+      (expP && last.p !== null ? '<circle class="end3" cx="' + last.x + '" cy="' + last.py + '" r="4"/>' : '') +
+      (exp && last.e !== null ? '<circle class="end2" cx="' + last.x + '" cy="' + last.ey + '" r="4"/>' : '') +
       '<circle class="end" cx="' + last.x + '" cy="' + last.y + '" r="4"/>' +
-      '<text class="endlbl" x="' + (last.x + 8) + '" y="' + (last.y + 4) + '">' + fmt(last.v) + '</text>' +
-      '<g id="unitsHover" style="display:none"><line class="hair" id="uhLine" y1="' + padT + '" y2="' + (H - padB) + '"/><circle class="hdot" id="uhDot" r="4"/></g>' +
+      endLabels(last, fmt) +
+      '<g id="unitsHover" style="display:none"><line class="hair" id="uhLine" y1="' + padT + '" y2="' + (H - padB) + '"/><circle class="hdot3" id="uhDot3" r="4" style="display:none"/><circle class="hdot2" id="uhDot2" r="4" style="display:none"/><circle class="hdot" id="uhDot" r="4"/></g>' +
       '</svg>';
+  }
+  function endLabels(last, fmt) {
+    // direct labels at the line ends (text in ink tokens), spread apart so they never collide
+    var L = [{ y: last.y, t: fmt(last.v), ink: 'var(--ink)' }];
+    if (last.e !== null && last.e !== undefined) L.push({ y: last.ey, t: fmt(Math.round(last.e * 10) / 10), ink: 'var(--ink-soft)' });
+    if (last.p !== null && last.p !== undefined) L.push({ y: last.py, t: fmt(Math.round(last.p * 10) / 10), ink: 'var(--ink-faint)' });
+    L.sort(function (a, b) { return a.y - b.y; });
+    for (var i = 1; i < L.length; i++) if (L[i].y - L[i - 1].y < 13) L[i].y = L[i - 1].y + 13;
+    return L.map(function (l) { return '<text class="endlbl" x="' + (last.x + 8) + '" y="' + (l.y + 4) + '" style="fill:' + l.ink + '">' + l.t + '</text>'; }).join('');
   }
   (function () {
     var host = document.getElementById('unitsChart'), tip = document.getElementById('unitsTip');
@@ -1400,7 +1679,16 @@
       var ln = document.getElementById('uhLine'); ln.setAttribute('x1', best.x); ln.setAttribute('x2', best.x);
       var dt = document.getElementById('uhDot'); dt.setAttribute('cx', best.x); dt.setAttribute('cy', best.y);
       var v = Math.round(best.v * 10) / 10;
-      tip.textContent = 'Hand ' + best.i + ' · ' + (v > 0 ? '+' : '') + v + (Math.abs(v) === 1 ? ' unit' : ' units');
+      var d2 = document.getElementById('uhDot2');
+      if (best.e !== null && best.e !== undefined) { d2.style.display = ''; d2.setAttribute('cx', best.x); d2.setAttribute('cy', best.ey); }
+      else d2.style.display = 'none';
+      var d3 = document.getElementById('uhDot3');
+      if (best.p !== null && best.p !== undefined) { d3.style.display = ''; d3.setAttribute('cx', best.x); d3.setAttribute('cy', best.py); }
+      else d3.style.display = 'none';
+      var f2 = function (z) { z = Math.round(z * 100) / 100; return (z > 0 ? '+' : '') + z; };
+      tip.textContent = 'Hand ' + best.i + ' · actual ' + (v > 0 ? '+' : '') + v +
+        (best.e !== null && best.e !== undefined ? ' · your play ' + f2(best.e) : '') +
+        (best.p !== null && best.p !== undefined ? ' · perfect ' + f2(best.p) : '');
       var card = host.parentElement.getBoundingClientRect();
       tip.style.left = Math.min(Math.max(r.left - card.left + best.x, 60), card.width - 60) + 'px';
       tip.style.top = (r.top - card.top + best.y - 10) + 'px';
@@ -1419,7 +1707,7 @@
   })();
 
   function renderStats() {
-    renderUnits();
+    renderUnits(); renderHistory();
     document.getElementById('sAcc').textContent = pct(stats.correct, stats.decisions);
     document.getElementById('sAccSub').textContent = stats.correct + ' / ' + stats.decisions + ' decisions';
     document.getElementById('sQuiz').textContent = pct(stats.quizCorrect, stats.quizzes);
