@@ -29,6 +29,7 @@ A self-contained blackjack expected-value dashboard (single static `index.html`,
   - A Start screen appears before the first hand and again whenever the shoe is reshuffled.
   - Grades every decision against basic strategy for these rules, with an option to grade Illustrious 18 / Fab 4 index plays.
   - Quizzes you on the running count every few hands (switchable to true count or both in settings; estimate decks left from the discard tray for true count).
+  - A **Net units** line chart plots your running total after every hand (hover for any hand's value).
   - Tracks accuracy by hand type, recent mistakes, repeat leaks and a quiz log (saved in your browser's localStorage).
 - `vercel.json` — static hosting config (clean URLs, no-cache revalidate).
 
