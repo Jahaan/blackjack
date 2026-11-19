@@ -593,7 +593,7 @@
         <div class="set-row"><label for="setButtons">Show action buttons too</label><span class="switch"><input type="checkbox" id="setButtons"><span></span></span></div>
         <div class="set-row"><label for="setShow">Show count (training wheels)</label><span class="switch"><input type="checkbox" id="setShow"><span></span></span></div>
         <div class="hint">True count = running count ÷ decks remaining. Running count answers must be exact; true count answers are accepted if rounded, truncated, or within ±0.5. Deviations use the Illustrious 18 &amp; Fab 4 indices.</div>
-        <div class="hint"><b>Bet ramp:</b> bet (true count − 1) units, minimum 1, up to your spread. TC +2 → 1, +3 → 2, +4 → 3, +5 → 4… Graded on the true count floored or rounded; within 1 unit counts as right.</div>
+        <div class="hint"><b>Bet ramp:</b> bet (true count − 1) units, minimum 1, up to your spread. TC +2 → 1, +3 → 2, +4 → 3, +5 → 4… Graded on the true count floored or rounded; within 1 unit counts as right (within 2 from TC +5 up).</div>
         <div class="hint"><button class="link-btn" id="resetBtn" type="button">Reset all stats</button></div>
       </div>
     </aside>
@@ -924,8 +924,9 @@
     var tc = trueCount();
     var okSet = [rampBet(Math.floor(tc)), rampBet(Math.round(tc))];
     var right = rampBet(Math.floor(tc));
-    // Close counts: within 1 unit of the ramp (floored or rounded TC) is fine. Bets never go in the mistake log.
-    var ok = okSet.some(function (v) { return Math.abs(betUnits - v) <= 1; });
+    // Close counts: within 1 unit of the ramp at lower counts, within 2 once the ramp reaches 4+ units
+    // (TC +5 and up). Floored or rounded TC both accepted. Bets never go in the mistake log.
+    var ok = okSet.some(function (v) { return Math.abs(betUnits - v) <= (v >= 4 ? 2 : 1); });
     stats.cats.bet[1]++;
     if (ok) stats.cats.bet[0]++;
     var u = function (n) { return n + (n === 1 ? ' unit' : ' units'); };
