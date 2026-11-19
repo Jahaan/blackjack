@@ -360,10 +360,11 @@
   .chip-btn.on { background: var(--accent); border-color: var(--accent); color: #1c1608; }
 
   /* Units history chart */
-  .units-card { position: relative; --series-1: #2a78d6; }
+  .units-card { --series-1: #2a78d6; }
+  .units-body { position: relative; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .units-card { --series-1: #3987e5; } }
   :root[data-theme="dark"] .units-card { --series-1: #3987e5; }
-  .units-card .sect-label span { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink-faint); margin-left: 4px; }
+  .units-card summary span { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink-faint); margin-left: 4px; }
   .units-chart { position: relative; height: 140px; touch-action: pan-y; }
   .units-chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
   .units-chart .zero { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 3 3; }
@@ -576,11 +577,13 @@
         <div class="cat-rows" id="catRows"></div>
       </div>
 
-      <div class="card pad units-card">
-        <div class="sect-label">Net units <span id="unitsSub"></span></div>
-        <div class="units-chart" id="unitsChart" role="img" aria-label="Net units over hands"></div>
-        <div class="units-tip" id="unitsTip" role="status"></div>
-      </div>
+      <details class="card review units-card" id="unitsCard">
+        <summary class="pad">Net units <span id="unitsSub"></span></summary>
+        <div class="review-body units-body">
+          <div class="units-chart" id="unitsChart" role="img" aria-label="Net units over hands"></div>
+          <div class="units-tip" id="unitsTip" role="status"></div>
+        </div>
+      </details>
 
       <details class="card review" id="reviewCard">
         <summary class="pad">Review <span>mistakes · leaks · quiz log</span></summary>
@@ -1358,6 +1361,7 @@
     var data = [0].concat(hist);                       // start of session = 0
     var n = data.length - 1;
     sub.textContent = n ? 'over ' + n + (n === 1 ? ' hand' : ' hands') : '';
+    if (!document.getElementById('unitsCard').open) { unitsPts = []; return; }
     if (n < 2) { host.innerHTML = '<div class="units-empty">Play a few hands to see your units over time.</div>'; unitsPts = []; return; }
     var W = host.clientWidth || 280, H = host.clientHeight || 140;
     var padL = 30, padR = 44, padT = 10, padB = 18;
@@ -1406,6 +1410,12 @@
     host.addEventListener('pointerdown', show);
     host.addEventListener('pointerleave', hide);
     var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(renderUnits, 120); });
+    var uc = document.getElementById('unitsCard');
+    try { if (localStorage.getItem('trainer-units-open') === '1') uc.open = true; } catch (e) {}
+    uc.addEventListener('toggle', function () {
+      try { localStorage.setItem('trainer-units-open', uc.open ? '1' : '0'); } catch (e) {}
+      renderUnits();
+    });
   })();
 
   function renderStats() {
