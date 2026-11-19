@@ -361,7 +361,7 @@
 
   /* Hand history */
   .hist-card { margin-top: 12px; }
-  .hist-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+  .hist-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 10px; }
   .hist-sum .stat .v { font-size: 19px; }
   @media (max-width: 560px) { .hist-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .hist-wrap { max-height: 380px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
@@ -591,7 +591,7 @@
             <div class="hist-sum" id="histSum"></div>
             <div class="hist-filter tabs" id="histFilter"><button type="button" class="on" data-f="all">All hands</button><button type="button" data-f="miss">With mistakes</button><button type="button" data-f="big">Big bets</button></div>
             <div class="hist-wrap"><table class="hist" id="histTable"></table></div>
-            <div class="hint"><b>Theo · your play</b> = your bet × your edge at that true count (≈ −0.55% + 0.5% per TC), minus the expected cost of each misplay. <b>Theo · perfect</b> = the ramp's bet × the same edge, with every play right. Actual − your play is luck; your play − perfect is what bet sizing and misplays cost. Misplay costs use a standard blackjack calculator for these rules and don't account for the count.</div>
+            <div class="hint"><b>Theo · perfect</b> = your bet × the value of the 3 dealt cards (your two + dealer's upcard) played perfectly, including the chance the dealer has blackjack. <b>Theo · your play</b> = the same minus what each misplay cost. Actual − your play is the luck of the draw. <b>Bet sizing</b> = (your bet − ramp bet) × your edge at that true count (≈ −0.55% + 0.5% per TC); negative means it cost you. Values come from a built-in blackjack calculator for these rules; it doesn't adjust playing values for the count.</div>
           </div>
         </details>
         <div class="controls-row">
@@ -703,6 +703,10 @@
   var settings = Object.assign({}, DEFAULT_SETTINGS, saved.settings || {});
   var stats = Object.assign(freshStats(), saved.stats || {});
   if (!stats.cats.bet) stats.cats.bet = [0, 0];
+  // hand log v2 (theoretical from the 3 dealt cards): drop entries recorded the old way
+  if ((stats.handLog || []).some(function (h) { return h.v !== 2; })) {
+    stats.handLog = []; stats.evHistory = []; stats.evpHistory = []; stats.ev = 0; stats.evp = 0;
+  }
   // bet sizing is no longer logged as a mistake: drop any old entries
   stats.mistakes = (stats.mistakes || []).filter(function (m) { return !/^Bet at TC/.test(m.ctx); });
   if (stats.leaks) delete stats.leaks['Bet sizing'];
@@ -1036,6 +1040,17 @@
   // Insurance EV per unit insured: pays 2:1 when the hole card is a ten. Ten density rises with the count
   // (break-even near TC +3).
   function insuranceEV(tc) { var p10 = 4 / 13 + 0.00855 * tc; return 3 * p10 - 1; }
+  // Value of a starting hand from the 3 known cards (your two + dealer up), per unit, playing perfectly.
+  // Includes the chance the dealer has blackjack (ten density adjusted for the count, like insurance).
+  function threeCardEV(cards, up, tc) {
+    var p10 = 4 / 13 + 0.00855 * tc;
+    var pBJ = up === 11 ? p10 : up === 10 ? 1 / 13 : 0;
+    if (isBJ(cards)) return (1 - pBJ) * 1.5;
+    var acts = ['S', 'H', 'D', 'R'];
+    if (cval(cards[0].r) === cval(cards[1].r)) acts.push('P');
+    var best = Math.max.apply(null, acts.map(function (a) { return actionEV(cards, up, a); }));
+    return pBJ * -1 + (1 - pBJ) * best;
+  }
   var gctx = null;                                   // bet in play at the decision being graded
   function misplayCost(kind, cards, up, chosen, right) {
     if (chosen === right || !gctx) return 0;
@@ -1135,6 +1150,7 @@
     }
     var up = cval(dealer.cards[0].r);
     var me = mySeat();
+    if (curLog) curLog.ev3 = threeCardEV(me.hands[0].cards, up, curLog.tc);
 
     // Insurance
     if (up === 11) {
@@ -1250,8 +1266,10 @@
       var cs = function (cards) { return cards.map(function (c) { return c.r; }).join(' '); };
       var edge = edgeAt(curLog.tc);
       var cost = curLog.plays.reduce(function (a, pl) { return a + (pl.cost || 0); }, 0);
-      var ev = curLog.bet * edge - cost;                                  // your bet, your plays
-      var evp = (curLog.ramp != null ? curLog.ramp : curLog.bet) * edge;  // ramp bet, perfect plays
+      var ev3 = curLog.ev3 !== undefined ? curLog.ev3 : edge;
+      var evp = curLog.bet * ev3;                                         // these 3 cards, perfect play
+      var ev = evp - cost;                                                // these 3 cards, your play
+      var betCost = curLog.ramp != null ? (curLog.bet - curLog.ramp) * edge : 0; // >0 helped, <0 hurt
       stats.ev = (stats.ev || 0) + ev;
       stats.evp = (stats.evp || 0) + evp;
       var rec = {
@@ -1260,7 +1278,8 @@
         res: me.hands.map(function (h) { return h.result; }),
         dealer: cs(dealer.cards), plays: curLog.plays,
         actual: Math.round((stats.net - curLog.netBefore) * 100) / 100, ev: Math.round(ev * 1000) / 1000,
-        evp: Math.round(evp * 1000) / 1000, cost: Math.round(cost * 1000) / 1000
+        evp: Math.round(evp * 1000) / 1000, cost: Math.round(cost * 1000) / 1000,
+        ev3: Math.round(ev3 * 1000) / 1000, betCost: Math.round(betCost * 1000) / 1000, v: 2
       };
       stats.handLog = stats.handLog || [];
       stats.handLog.push(rec);
@@ -1537,9 +1556,9 @@
   function renderHistory() {
     var card = document.getElementById('histCard');
     var log = stats.handLog || [];
-    var act = 0, ev = 0, evp = 0, n = log.length, betN = 0, betOk = 0, plays = 0, playsOk = 0;
+    var act = 0, ev = 0, evp = 0, mis = 0, bc = 0, n = log.length, betN = 0, betOk = 0, plays = 0, playsOk = 0;
     log.forEach(function (h) {
-      act += h.actual; ev += h.ev; evp += (h.evp !== undefined ? h.evp : h.ev);
+      act += h.actual; ev += h.ev; evp += (h.evp !== undefined ? h.evp : h.ev); mis += (h.cost || 0); bc += (h.betCost || 0);
       if (h.betOk !== null && h.betOk !== undefined) { betN++; if (h.betOk) betOk++; }
       h.plays.forEach(function (p) { plays++; if (p.ok) playsOk++; });
     });
@@ -1547,10 +1566,11 @@
     if (!card.open) return;
     document.getElementById('histSum').innerHTML =
       '<div class="stat"><div class="k">Actual</div><div class="v">' + sgn(act, 1) + '</div><div class="sub">units won/lost</div></div>' +
-      '<div class="stat"><div class="k">Theo · your play</div><div class="v">' + sgn(ev, 2) + '</div><div class="sub">your bets &amp; plays</div></div>' +
-      '<div class="stat"><div class="k">Theo · perfect</div><div class="v">' + sgn(evp, 2) + '</div><div class="sub">ramp bets, no misplays</div></div>' +
+      '<div class="stat"><div class="k">Theo · your play</div><div class="v">' + sgn(ev, 2) + '</div><div class="sub">dealt cards, your plays</div></div>' +
+      '<div class="stat"><div class="k">Theo · perfect</div><div class="v">' + sgn(evp, 2) + '</div><div class="sub">dealt cards, perfect plays</div></div>' +
       '<div class="stat"><div class="k">Luck</div><div class="v">' + sgn(act - ev, 1) + '</div><div class="sub">actual − your play</div></div>' +
-      '<div class="stat"><div class="k">Mistakes cost</div><div class="v">' + sgn(ev - evp, 2) + '</div><div class="sub">your play − perfect</div></div>' +
+      '<div class="stat"><div class="k">Misplays</div><div class="v">' + sgn(-mis, 2) + '</div><div class="sub">your play − perfect</div></div>' +
+      '<div class="stat"><div class="k">Bet sizing</div><div class="v">' + sgn(bc, 2) + '</div><div class="sub">vs the ramp, at your edge</div></div>' +
       '<div class="stat"><div class="k">Accuracy</div><div class="v">' + (plays ? Math.round(playsOk / plays * 100) + '%' : '—') + '</div><div class="sub">plays' + (betN ? ' · bets ' + Math.round(betOk / betN * 100) + '%' : '') + '</div></div>';
     var rows = log.slice().reverse().filter(function (h) {
       if (histFilter === 'miss') return h.betOk === false || h.plays.some(function (p) { return !p.ok; });
