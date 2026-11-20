@@ -435,6 +435,21 @@
   .units-modal .units-chart.sc-chart { height: min(46vh, 400px); }
   .sc-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 14px 0 6px; font-size: 12.5px; }
   .sc-head .tc-key { padding-top: 0; flex: 1; }
+  .sim-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 10px; }
+  .sim-controls label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+  .sim-controls select { height: 34px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--panel-2); color: var(--ink); font-size: 13px; padding: 0 8px; }
+  .sim-run { width: auto; height: 36px; padding: 0 18px; font-size: 13.5px; }
+  .sim-run:disabled { opacity: .5; cursor: default; }
+  .sim-progress { font-size: 12.5px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+  .sim-key { margin-bottom: 6px; }
+  .tc-key .k-sim { background: var(--series-1); }
+  .tc-key .k-exp { background: repeating-linear-gradient(90deg, var(--ink) 0 5px, transparent 5px 8px); }
+  .tc-key .k-band { background: var(--ink-faint); opacity: .3; height: 9px; width: 14px; }
+  .units-modal .units-chart.sim-chart { height: min(52vh, 460px); }
+  .units-chart .band1 { fill: var(--ink-faint); opacity: .18; }
+  .units-chart .band2 { fill: var(--ink-faint); opacity: .09; }
+  .units-chart .expln { fill: none; stroke: var(--ink); stroke-width: 1.75; stroke-dasharray: 6 4; }
+  .units-chart .simln { fill: none; stroke: var(--series-1); stroke-width: 1.75; stroke-linejoin: round; }
   .tc-key .k-on { background: var(--series-1); width: 9px; height: 9px; border-radius: 50%; }
   .tc-key .k-off { background: var(--series-2); width: 9px; height: 9px; border-radius: 50%; }
   .units-chart .bub { stroke: var(--panel); stroke-width: 1.5; fill-opacity: .85; }
@@ -659,6 +674,7 @@
           <button class="chip-btn" id="shuffleBtn" type="button">New shoe</button>
           <button class="chip-btn" id="quizNowBtn" type="button">Quiz me next hand</button>
           <button class="chip-btn" id="totalsBtn" type="button" aria-pressed="false">Hide totals</button>
+          <button class="chip-btn" id="simBtn" type="button">Simulate perfect play</button>
         </div>
       </div>
     </main>
@@ -739,6 +755,24 @@
         <div class="hint"><button class="link-btn" id="resetBtn" type="button">Reset all stats</button></div>
       </div>
     </aside>
+  </div>
+</div>
+
+<div class="units-modal" id="simModal" role="dialog" aria-modal="true" aria-labelledby="simTitle">
+  <div class="box units-body" id="simBox">
+    <div class="head"><h2 id="simTitle">Simulate perfect play</h2><span id="simRules"></span><button type="button" class="units-expand" id="simClose">Close ✕</button></div>
+    <div class="sim-controls">
+      <label>Hands
+        <select id="simHands"><option value="1000">1,000</option><option value="5000">5,000</option><option value="10000" selected>10,000</option><option value="50000">50,000</option><option value="100000">100,000</option><option value="250000">250,000</option><option value="1000000">1,000,000</option></select>
+      </label>
+      <button type="button" class="primary sim-run" id="simRun">Run simulation</button>
+      <span class="sim-progress" id="simProgress" aria-live="polite"></span>
+    </div>
+    <div class="tc-key sim-key"><span><i class="k-sim"></i>Simulated net units</span><span><i class="k-exp"></i>Expected</span><span><i class="k-band"></i>±1σ / ±2σ range</span></div>
+    <div class="units-chart sim-chart" data-chart role="img" aria-label="Simulated net units"></div>
+    <div class="units-tip" data-tip role="status"></div>
+    <div class="tc-stats sim-stats" id="simStats"></div>
+    <div class="note">Plays basic strategy perfectly (plus the Illustrious 18 / Fab 4 index plays when "Grade count deviations" is on) and always bets the ramp for your spread, using your current table settings. It runs on its own shoe and never touches your stats, history or current game. Expected = ramp bet × edge at the true count (≈ −0.55% + 0.5% per TC); it leaves out index plays and insurance, so with those on the simulated line usually runs above it. The shaded bands show where results land about 68% and 95% of the time around expected.</div>
   </div>
 </div>
 
@@ -1688,6 +1722,7 @@
   });
   document.addEventListener('keydown', function (e) {
     if (document.getElementById('quiz').classList.contains('on')) return;
+    if (document.querySelector('.units-modal.on')) return;            // charts / simulator open: no game keys
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     var k = e.key.toUpperCase();
@@ -1868,6 +1903,195 @@
     host.setAttribute('aria-label', 'Net units over ' + n + ' hands. ' + shown.map(function (sr) { return sr.name + ' ' + fmtSigned(D.vals[sr.key][n] || 0, 1); }).join('; ') + '.');
     chartState[box.id] = { D: D, shown: shown, x: x, y: y, n: n };
   }
+  // ---------- Simulator: perfect play + perfect ramp betting, fully isolated from the real game ----------
+  function makeSim(N, cfg) {
+    var shoeS = [], cut = 0, dealtS = 0, rcS = 0, shoesS = 0;
+    function shuffleS() {
+      shoeS = [];
+      for (var d = 0; d < cfg.decks; d++) for (var su = 0; su < 4; su++) for (var r = 0; r < 13; r++) shoeS.push(RANKS[r]);
+      for (var i = shoeS.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = shoeS[i]; shoeS[i] = shoeS[j]; shoeS[j] = t; }
+      cut = Math.floor(shoeS.length * cfg.pen); dealtS = 1; shoeS.pop(); rcS = 0; shoesS++;
+    }
+    function drawS(seen) { if (!shoeS.length) shuffleS(); var r = shoeS.pop(); dealtS++; if (seen) rcS += hilo(r); return { r: r }; }
+    function tcS(extraUnseen) { return rcS / Math.max(0.25, (shoeS.length + (extraUnseen || 0)) / 52); }
+    function rampS(tc) { return cfg.betting ? Math.max(1, Math.min(cfg.spread, Math.floor(tc) - 1)) : 1; }
+    function legalS(hands, h) {
+      var L = ['H', 'S'];
+      if (h.cards.length === 2 && !h.splitAces) {
+        L.push('D');
+        if (cval(h.cards[0].r) === cval(h.cards[1].r) && hands.length < 4) L.push('P');
+        if (hands.length === 1) L.push('R');
+      }
+      return L;
+    }
+    function playSeat(hands, up, isMe) {
+      for (var hi = 0; hi < hands.length; hi++) {
+        var h = hands[hi];
+        if (h.cards.length === 1) { h.cards.push(drawS(true)); if (h.splitAces) { h.done = true; continue; } }
+        while (!h.done) {
+          if (total(h.cards).t >= 21) break;
+          var legal = legalS(hands, h);
+          var a = correctPlay(h.cards, up, legal, tcS(1), cfg.devs && isMe).action;
+          if (a === 'S') h.done = true;
+          else if (a === 'H') h.cards.push(drawS(true));
+          else if (a === 'D') { h.bet *= 2; h.cards.push(drawS(true)); h.done = true; }
+          else if (a === 'R') { h.sur = true; h.done = true; }
+          else if (a === 'P') {
+            var aces = h.cards[0].r === 'A', second = h.cards.pop();
+            hands.splice(hi + 1, 0, { cards: [second], bet: h.bet, splitAces: aces });
+            h.splitAces = aces; h.cards.push(drawS(true));
+            if (aces) h.done = true;
+          }
+        }
+      }
+    }
+    var res = { net: 0, exp: 0, n: 0, sumSq: 0, peak: 0, trough: 0, maxDD: 0, at3: 0, hands: N };
+    var stride = Math.max(1, Math.floor(N / 1200)), pts = [{ i: 0, net: 0, exp: 0, v: 0 }];
+    var varSum = 0;
+    shuffleS();
+    function round() {
+      if (dealtS >= cut) shuffleS();
+      var tc = tcS(0), bet = rampS(tc), seats = [];
+      var nSeats = cfg.bots + 1, meIdx = cfg.seat === 'first' ? 0 : cfg.seat === 'third' ? nSeats - 1 : Math.floor(nSeats / 2);
+      for (var s2 = 0; s2 < nSeats; s2++) seats.push({ me: s2 === meIdx, hands: [{ cards: [], bet: s2 === meIdx ? bet : 1 }] });
+      var dealerC = [];
+      for (var r = 0; r < 2; r++) { seats.forEach(function (st) { st.hands[0].cards.push(drawS(true)); }); dealerC.push(drawS(r === 0)); }
+      var up = cval(dealerC[0].r), me = seats[meIdx], ins = 0;
+      if (up === 11 && cfg.devs && tcS(1) >= 3) ins = bet / 2;
+      var dealerBJ = (up === 11 || up === 10) && isBJ(dealerC);
+      var amt = 0;
+      if (dealerBJ) {
+        rcS += hilo(dealerC[1].r);
+        amt = isBJ(me.hands[0].cards) ? 0 : -bet;
+        if (ins) amt += ins * 2;
+      } else {
+        if (ins) amt -= ins;
+        seats.forEach(function (st) { if (!isBJ(st.hands[0].cards)) playSeat(st.hands, up, st.me); });
+        rcS += hilo(dealerC[1].r);
+        var live = seats.some(function (st) { return st.hands.some(function (h) { return !h.sur && total(h.cards).t <= 21 && !(st.hands.length === 1 && isBJ(h.cards)); }); });
+        if (live) { while (true) { var dt = total(dealerC); if (dt.t > 17 || (dt.t === 17 && !dt.soft)) break; dealerC.push(drawS(true)); } }
+        var dtot = total(dealerC).t;
+        me.hands.forEach(function (h) {
+          var p = total(h.cards).t, nat = me.hands.length === 1 && isBJ(h.cards);
+          if (h.sur) amt -= h.bet / 2;
+          else if (p > 21) amt -= h.bet;
+          else if (nat) amt += 1.5 * h.bet;
+          else if (dtot > 21 || p > dtot) amt += h.bet;
+          else if (p < dtot) amt -= h.bet;
+        });
+      }
+      res.n++; res.net += amt; res.sumSq += amt * amt;
+      var e = bet * (-0.0055 + 0.005 * tc); res.exp += e;
+      if (tc >= 3) res.at3++;
+      res.peak = Math.max(res.peak, res.net);
+      res.maxDD = Math.max(res.maxDD, res.peak - res.net);
+      res.trough = Math.min(res.trough, res.net);
+      varSum += 1.3 * bet * bet;                       // per-hand variance ≈ 1.3 × bet²
+      if (res.n % stride === 0 || res.n === N) pts.push({ i: res.n, net: res.net, exp: res.exp, v: varSum });
+    }
+    return {
+      res: res, pts: pts,
+      step: function (k) { for (var i = 0; i < k && res.n < N; i++) round(); res.shoes = shoesS; return res.n >= N; }
+    };
+  }
+  var simState = null, simRunning = null;
+  function drawSim() {
+    var box = document.getElementById('simBox'), host = box.querySelector('[data-chart]');
+    if (!simState) { host.innerHTML = '<div class="units-empty">Pick a number of hands and press Run simulation.</div>'; return; }
+    var pts = simState.pts, N = pts[pts.length - 1].i || 1;
+    var W = host.clientWidth || 600, H = host.clientHeight || 320, padL = 52, padR = 70, padT = 12, padB = 26;
+    var lo = 0, hi = 0;
+    pts.forEach(function (p) { var sd = Math.sqrt(p.v); lo = Math.min(lo, p.net, p.exp - 2 * sd); hi = Math.max(hi, p.net, p.exp + 2 * sd); });
+    if (hi - lo < 4) { hi += 2; lo -= 2; }
+    var x = function (i) { return padL + (W - padL - padR) * i / N; };
+    var y = function (v) { return padT + (H - padT - padB) * (hi - v) / (hi - lo); };
+    var svg = '<svg class="plot" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">';
+    var ticks = 6, step = (hi - lo) / ticks, mag = Math.pow(10, Math.floor(Math.log10(step))); step = Math.ceil(step / mag) * mag;
+    for (var t = Math.ceil(lo / step) * step; t <= hi; t += step) {
+      svg += '<line class="grid" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(t) + '" y2="' + y(t) + '"/>' +
+        '<text class="ax" x="' + (padL - 6) + '" y="' + (y(t) + 3.5) + '" text-anchor="end">' + (t > 0 ? '+' : '') + Math.round(t) + '</text>';
+    }
+    svg += '<line class="zero" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(0) + '" y2="' + y(0) + '"/>' +
+      '<text class="ax" x="' + padL + '" y="' + (H - 6) + '">hand 0</text>' +
+      '<text class="ax" x="' + (W - padR) + '" y="' + (H - 6) + '" text-anchor="end">' + N.toLocaleString() + '</text>';
+    function band(k) {
+      var up = pts.map(function (p) { return x(p.i).toFixed(1) + ' ' + y(p.exp + k * Math.sqrt(p.v)).toFixed(1); });
+      var dn = pts.slice().reverse().map(function (p) { return x(p.i).toFixed(1) + ' ' + y(p.exp - k * Math.sqrt(p.v)).toFixed(1); });
+      return 'M' + up.join('L') + 'L' + dn.join('L') + 'Z';
+    }
+    svg += '<path class="band2" d="' + band(2) + '"/><path class="band1" d="' + band(1) + '"/>';
+    svg += '<path class="expln" d="M' + pts.map(function (p) { return x(p.i).toFixed(1) + ' ' + y(p.exp).toFixed(1); }).join('L') + '"/>';
+    svg += '<path class="simln" d="M' + pts.map(function (p) { return x(p.i).toFixed(1) + ' ' + y(p.net).toFixed(1); }).join('L') + '"/>';
+    var last = pts[pts.length - 1], ly = [{ y: y(last.net), t: fmtSigned(last.net, 1), ink: 'var(--ink)' }, { y: y(last.exp), t: fmtSigned(last.exp, 1), ink: 'var(--ink-soft)' }]
+      .sort(function (a, b) { return a.y - b.y; });
+    if (ly[1].y - ly[0].y < 13) ly[1].y = ly[0].y + 13;
+    svg += '<circle class="end" cx="' + x(last.i) + '" cy="' + y(last.net) + '" r="4" fill="var(--series-1)"/>';
+    ly.forEach(function (l) { svg += '<text class="endlbl" x="' + (x(last.i) + 8) + '" y="' + (l.y + 4) + '" fill="' + l.ink + '">' + l.t + '</text>'; });
+    svg += '<g class="hov" style="display:none"><line class="hair" y1="' + padT + '" y2="' + (H - padB) + '"/><circle class="hdot" r="4" fill="var(--series-1)"/></g></svg>';
+    host.innerHTML = svg;
+    host.setAttribute('aria-label', 'Simulated ' + N + ' hands: net ' + fmtSigned(last.net, 1) + ' units, expected ' + fmtSigned(last.exp, 1) + '.');
+    simState.geom = { x: x, y: y };
+  }
+  function simStatsHTML() {
+    var r = simState.res, n = r.n || 1;
+    var mean = r.net / n, sd = Math.sqrt(Math.max(0, r.sumSq / n - mean * mean));
+    var st = function (k, v, sub) { return '<div class="stat"><div class="k">' + k + '</div><div class="v">' + v + '</div>' + (sub ? '<div class="sub">' + sub + '</div>' : '') + '</div>'; };
+    return st('Hands', n.toLocaleString(), (r.shoes || 0).toLocaleString() + ' shoes') +
+      st('Net units', fmtSigned(r.net, 1)) + st('Expected', fmtSigned(r.exp, 1), 'units') +
+      st('Win rate', fmtSigned(r.net / n * 100, 2), 'units / 100 hands') + st('Expected rate', fmtSigned(r.exp / n * 100, 2), 'units / 100 hands') +
+      st('SD', (sd * 10).toFixed(1), 'units / 100 hands') + st('Worst drawdown', '−' + r.maxDD.toFixed(1), 'units') +
+      st('TC +3 up', Math.round(r.at3 / n * 100) + '%', 'of hands');
+  }
+  (function () {
+    var modal = document.getElementById('simModal'), box = document.getElementById('simBox');
+    var runBtn = document.getElementById('simRun'), prog = document.getElementById('simProgress');
+    function rulesText() {
+      return settings.decks + ' decks · ' + Math.round(settings.pen * 100) + '% pen · ' + settings.bots + ' other player' + (settings.bots === 1 ? '' : 's') +
+        ' · ' + (settings.betting ? '1–' + settings.spread + ' spread' : 'flat 1-unit bets') + (settings.devs ? ' · index plays' : '');
+    }
+    function open() { modal.classList.add('on'); document.getElementById('simRules').textContent = rulesText(); drawSim(); runBtn.focus(); }
+    function close() { if (simRunning) { clearTimeout(simRunning); simRunning = null; runBtn.disabled = false; prog.textContent = 'Stopped.'; } modal.classList.remove('on'); document.getElementById('simBtn').focus(); }
+    document.getElementById('simBtn').addEventListener('click', open);
+    document.getElementById('simClose').addEventListener('click', close);
+    modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.classList.contains('on')) { e.stopPropagation(); close(); } }, true);
+    runBtn.addEventListener('click', function () {
+      var N = +document.getElementById('simHands').value;
+      var cfg = { decks: settings.decks, pen: settings.pen, bots: settings.bots, seat: settings.seat, spread: settings.spread, betting: settings.betting, devs: settings.devs };
+      document.getElementById('simRules').textContent = rulesText();
+      var sim = makeSim(N, cfg);
+      simState = { pts: sim.pts, res: sim.res };
+      runBtn.disabled = true;
+      var t0 = performance.now();
+      (function tick() {
+        var done = sim.step(4000);
+        simState.res = sim.res;
+        prog.textContent = done ? 'Done · ' + N.toLocaleString() + ' hands in ' + ((performance.now() - t0) / 1000).toFixed(1) + 's' : 'Running… ' + Math.round(sim.res.n / N * 100) + '%';
+        drawSim(); document.getElementById('simStats').innerHTML = simStatsHTML();
+        if (done) { simRunning = null; runBtn.disabled = false; runBtn.textContent = 'Run again'; return; }
+        simRunning = setTimeout(tick, 0);
+      })();
+    });
+    var host = box.querySelector('[data-chart]'), tip = box.querySelector('[data-tip]');
+    function hide() { tip.classList.remove('on'); var g = host.querySelector('.hov'); if (g) g.style.display = 'none'; }
+    host.addEventListener('pointermove', function (e) {
+      if (!simState || !simState.geom) return hide();
+      var r = host.getBoundingClientRect(), px = e.clientX - r.left, pts = simState.pts, g0 = simState.geom;
+      var best = pts[0]; pts.forEach(function (p) { if (Math.abs(g0.x(p.i) - px) < Math.abs(g0.x(best.i) - px)) best = p; });
+      var g = host.querySelector('.hov'); if (!g) return;
+      g.style.display = ''; g.querySelector('.hair').setAttribute('x1', g0.x(best.i)); g.querySelector('.hair').setAttribute('x2', g0.x(best.i));
+      g.querySelector('.hdot').setAttribute('cx', g0.x(best.i)); g.querySelector('.hdot').setAttribute('cy', g0.y(best.net));
+      var sd = Math.sqrt(best.v);
+      tip.textContent = 'Hand ' + best.i.toLocaleString() + ' · net ' + fmtSigned(best.net, 1) + ' · expected ' + fmtSigned(best.exp, 1) + ' · ±1σ ' + (best.exp - sd).toFixed(0) + ' to ' + (best.exp + sd).toFixed(0);
+      var br = box.getBoundingClientRect(); tip.classList.add('on');
+      var tw = tip.offsetWidth, left = r.left - br.left + g0.x(best.i);
+      tip.style.left = Math.min(Math.max(left, tw / 2 + 4), br.width - tw / 2 - 4) + 'px';
+      tip.style.top = (r.top - br.top + 8) + 'px'; tip.style.transform = 'translate(-50%, 0)';
+    });
+    host.addEventListener('pointerleave', hide);
+    window.addEventListener('resize', function () { if (modal.classList.contains('on')) drawSim(); });
+  })();
+
   // ---------- True count chart ----------
   var tcState = {};
   function tcSummary() {

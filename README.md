@@ -38,6 +38,9 @@ A self-contained blackjack expected-value dashboard (single static `index.html`,
     misplays and bet sizing (vs the ramp, at your edge for that count) are shown separately.
   - Your bet resets to 1 unit at the start of every new shoe.
   - A **True count** chart shows the TC at each bet (shoe boundaries marked, break-even line at +1) above a bet panel (your bet as gray bars vs the ramp bet as a dark line), plus a **Bets by true count** bubble scatter (bubble size = hands, blue on the ramp, orange off, ramp as a staircase) with how often you saw +2/+3/+5 and what the ramp should earn at those counts.
+  - **Simulate perfect play** runs 1,000–1,000,000 hands with perfect basic strategy (plus index plays if enabled) and ramp
+    betting on your current table settings, and charts simulated net units against expected with ±1σ/±2σ bands. It uses
+    its own shoe and never touches your stats.
   - Keeps every chart point and every mistake/leak (with how often each spot came up); the hand history keeps the last 1,000 hands.
     If browser storage ever fills, the oldest chart points are thinned rather than losing a save.
   - Tracks accuracy by hand type, recent mistakes, repeat leaks and a quiz log (saved in your browser's localStorage).
