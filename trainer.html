@@ -666,7 +666,7 @@
             <div class="hist-sum" id="histSum"></div>
             <div class="hist-filter tabs" id="histFilter"><button type="button" class="on" data-f="all">All hands</button><button type="button" data-f="miss">With mistakes</button><button type="button" data-f="big">Big bets</button></div>
             <div class="hist-wrap"><table class="hist" id="histTable"></table></div>
-            <div class="hint"><b>Theo · perfect</b> = your bet × the value of the 3 dealt cards (your two + dealer's upcard) played perfectly, including the chance the dealer has blackjack. <b>Theo · your play</b> = the same minus what each misplay cost. Actual − your play is the luck of the draw. <b>Bet sizing</b> = (your bet − ramp bet) × your edge at that true count (≈ −0.55% + 0.5% per TC); negative means it cost you. Values come from a built-in blackjack calculator for these rules; it doesn't adjust playing values for the count.</div>
+            <div class="hint"><b>Theo · perfect</b> = your bet × the value of the 3 dealt cards (your two + dealer's upcard) played perfectly, including the chance the dealer has blackjack. <b>Theo · your play</b> = the same minus what each misplay cost. Actual − your play is the luck of the draw. <b>Bet sizing</b> = (your bet − ramp bet) × your edge at that true count (measured from 600M simulated hands: about −0.52% at TC 0, rising ~0.55% per TC); negative means it cost you. Values come from a built-in blackjack calculator for these rules; it doesn't adjust playing values for the count.</div>
           </div>
         </details>
         <div class="controls-row">
@@ -772,7 +772,7 @@
     <div class="units-chart sim-chart" data-chart role="img" aria-label="Simulated net units"></div>
     <div class="units-tip" data-tip role="status"></div>
     <div class="tc-stats sim-stats" id="simStats"></div>
-    <div class="note">Plays basic strategy perfectly (plus the Illustrious 18 / Fab 4 index plays when "Grade count deviations" is on) and always bets the ramp for your spread, using your current table settings. It runs on its own shoe and never touches your stats, history or current game. Expected = ramp bet × edge at the true count (≈ −0.55% + 0.5% per TC); it leaves out index plays and insurance, so with those on the simulated line usually runs above it. The shaded bands show where results land about 68% and 95% of the time around expected.</div>
+    <div class="note">Plays basic strategy perfectly (plus the Illustrious 18 / Fab 4 index plays when "Grade count deviations" is on) and always bets the ramp for your spread, using your current table settings. It runs on its own shoe and never touches your stats, history or current game. Expected = ramp bet × edge at the true count (measured from 600M simulated hands of basic strategy: about −0.52% at TC 0, rising ~0.55% per TC); it leaves out index plays and insurance, so with those on the simulated line usually runs above it. The shaded bands show where results land about 68% and 95% of the time around expected.</div>
   </div>
 </div>
 
@@ -796,13 +796,28 @@
     <div class="units-tools"><div class="units-legend" data-legend></div></div>
     <div class="units-chart" data-chart role="img" aria-label="Net units over hands"></div>
     <div class="units-tip" data-tip role="status"></div>
-    <div class="note">Solid lines use the cards you were dealt (theoretical value of your two cards vs the dealer's upcard). Dashed lines use only the true count when you bet (your edge ≈ −0.55% + 0.5% per TC). Click a legend item to show or hide a line. Esc closes.</div>
+    <div class="note">Solid lines use the cards you were dealt (theoretical value of your two cards vs the dealer's upcard). Dashed lines use only the true count when you bet (your edge at that count, measured by simulation). Click a legend item to show or hide a line. Esc closes.</div>
   </div>
 </div>
 
 <script>
 (function () {
   'use strict';
+
+  // Edge by true count for these rules (6D, H17, DAS, LS, 3:2, basic strategy, 75% pen), measured from 600M simulated
+  // hands: average result per unit bet at each half true count. Interpolated between points; beyond +9 it rises ~0.5%/TC.
+  var EDGE_TC = [-9.155,-7.489,-6.994,-6.485,-5.983,-5.488,-4.989,-4.486,-3.985,-3.495,-2.996,-2.487,-1.986,-1.487,-0.993,-0.5,-0.001,0.497,0.991,1.486,1.984,2.486,2.984,3.481,3.984,4.486,4.989,5.488,5.983,6.485,6.994,7.489,7.984,8.481,8.989];
+  var EDGE_V = [-0.06895,-0.05454,-0.05028,-0.04661,-0.04304,-0.03926,-0.0355,-0.03273,-0.02898,-0.0255,-0.0223,-0.01935,-0.01655,-0.0136,-0.01075,-0.00777,-0.00518,-0.00198,0.00083,0.00337,0.00622,0.00959,0.0117,0.01378,0.01758,0.01939,0.02167,0.02364,0.02557,0.0279,0.03187,0.03265,0.03551,0.03971,0.0385];
+  function edgeAt(tc) {
+    var n = EDGE_TC.length;
+    if (tc <= EDGE_TC[0]) return EDGE_V[0];
+    if (tc >= EDGE_TC[n - 1]) return EDGE_V[n - 1] + 0.005 * Math.min(6, tc - EDGE_TC[n - 1]);
+    for (var i = 1; i < n; i++) if (tc <= EDGE_TC[i]) {
+      var f = (tc - EDGE_TC[i - 1]) / (EDGE_TC[i] - EDGE_TC[i - 1]);
+      return EDGE_V[i - 1] + f * (EDGE_V[i] - EDGE_V[i - 1]);
+    }
+    return EDGE_V[n - 1];
+  }
 
   // ---------- Cards ----------
   var SUITS = ['♠', '♥', '♦', '♣'];
@@ -861,7 +876,7 @@
   (function backfillTC() {
     var log = stats.handLog || [], hist = stats.history || [];
     if (!log.length || log.length > hist.length) return;
-    var edge = function (tc) { return -0.0055 + 0.005 * tc; };
+    var edge = edgeAt;
     var r4 = function (x) { return Math.round(x * 10000) / 10000; };
     log.forEach(function (h) {
       if (h.tcYou === undefined || h.tcRamp === undefined) {
@@ -883,6 +898,22 @@
       stats[pr[0]] = arr;
     });
   })();
+  // Edge model v3 (measured table): recompute every stored count-based figure from the saved TC / bet / ramp.
+  if (stats.edgeModel !== 3) {
+    (function () {
+      var r4 = function (x) { return Math.round(x * 10000) / 10000; };
+      (stats.handLog || []).forEach(function (h) {
+        if (h.tc == null) return;
+        var e = edgeAt(h.tc);
+        h.tcYou = r4(h.bet * e); h.tcRamp = r4((h.ramp != null ? h.ramp : h.bet) * e);
+        h.betCost = Math.round((h.tcYou - h.tcRamp) * 1000) / 1000;
+      });
+      var tcs = stats.tcSeries || [], bs = stats.betSeries || [], rs = stats.rampSeries || [];
+      if (stats.tcHistory) stats.tcHistory = stats.tcHistory.map(function (v, i) { return tcs[i] != null && bs[i] != null ? r4(bs[i] * edgeAt(tcs[i])) : v; });
+      if (stats.tcRampHistory) stats.tcRampHistory = stats.tcRampHistory.map(function (v, i) { return tcs[i] != null && (rs[i] != null || bs[i] != null) ? r4((rs[i] != null ? rs[i] : bs[i]) * edgeAt(tcs[i])) : v; });
+    })();
+    stats.edgeModel = 3;
+  }
   // bet sizing is no longer logged as a mistake: drop any old entries
   stats.mistakes = (stats.mistakes || []).filter(function (m) { return !/^Bet at TC/.test(m.ctx); });
   if (stats.leaks) delete stats.leaks['Bet sizing'];
@@ -1240,8 +1271,6 @@
   }
 
   var curLog = null, lastBetOk = null;
-  // Theoretical edge for these rules (6D, H17, DAS, LS, 3:2): about -0.55% off the top, +0.5% per true count.
-  function edgeAt(tc) { return -0.0055 + 0.005 * tc; }
   var betUnits = 1, betHeld = false, betDeadline = 0, betDur = 0;
   function showCountdown(on) {
     var cd = document.getElementById('betCd'), arc = document.getElementById('betCdArc');
@@ -1981,7 +2010,7 @@
         });
       }
       res.n++; res.net += amt; res.sumSq += amt * amt;
-      var e = bet * (-0.0055 + 0.005 * tc); res.exp += e;
+      var e = bet * edgeAt(tc); res.exp += e;
       if (tc >= 3) res.at3++;
       res.peak = Math.max(res.peak, res.net);
       res.maxDD = Math.max(res.maxDD, res.peak - res.net);
@@ -2105,7 +2134,7 @@
     // what the ramp would expect per 100 hands at the counts you actually saw
     var bs = stats.betSeries || [], rs = stats.rampSeries || [], on = 0, over = 0, under = 0, bn = 0;
     bs.forEach(function (b, k) { if (b == null || rs[k] == null) return; bn++; if (b === rs[k]) on++; else if (b > rs[k]) over++; else under++; });
-    var rampEV = 0; tcs.forEach(function (tc) { rampEV += Math.max(1, Math.min(settings.spread, Math.floor(tc) - 1)) * (-0.0055 + 0.005 * tc); });
+    var rampEV = 0; tcs.forEach(function (tc) { rampEV += Math.max(1, Math.min(settings.spread, Math.floor(tc) - 1)) * edgeAt(tc); });
     return {
       n: n, avg: avg, max: Math.max.apply(null, tcs), min: Math.min.apply(null, tcs), shoes: Object.keys(shoes).length,
       atOrBelow1: cnt(function (v) { return v < 2; }) / n, at2: cnt(function (v) { return v >= 2; }) / n,
