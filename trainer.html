@@ -1156,7 +1156,7 @@
   function cheatList(ls, h17) {
     var L = [];
     var add = function (o) { L.push(o); };
-    var nr = ls ? 'only when surrender isn\'t available' : '';
+    var nr = ls ? 'on 3+ cards or after a split (can\'t surrender); on 2 cards, surrender instead' : '';
     add({ g: 'S', t: 16, u: 10, idx: 0, dir: 'ge', act: 'S', note: nr });
     add({ g: 'S', t: 15, u: 10, idx: 4, dir: 'ge', act: 'S', note: nr });
     add({ g: 'S', t: 16, u: 9, idx: 5, dir: 'ge', act: 'S', note: ls ? nr : '' });
@@ -2164,7 +2164,7 @@
         var basic = correctPlay(cards, d.u, legal, tc, false).action;
         var when = (d.dir === 'ge' ? '≥ ' : '< ') + (d.idx > 0 ? '+' : '') + d.idx;
         return { up: d.u, cards: cards, tc: tc, legal: legal, right: c.action,
-          why: (d.pair ? '10,10' : d.t) + ' vs ' + upLabel(d.u) + ': ' + ACT_NAME[d.act] + ' at TC ' + when + ' (basic: ' + ACT_NAME[basic] + ')' + (d.noR ? ' · surrender not available' : '') };
+          why: (d.pair ? '10,10' : d.t) + ' vs ' + upLabel(d.u) + ': ' + ACT_NAME[d.act] + ' at TC ' + when + ' (basic: ' + ACT_NAME[basic] + ')' + (d.noR ? ' · 3 cards, so surrender isn\'t an option' : '') };
       }
       var up = pick([2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11]);
       var cs;
