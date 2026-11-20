@@ -425,6 +425,16 @@
   .units-tip .row { display: flex; align-items: center; gap: 6px; }
   .units-tip .row i { width: 10px; height: 3px; border-radius: 2px; flex: none; }
   .units-tip .row b { margin-left: auto; padding-left: 10px; }
+  .tc-key { flex: 1; font-size: 11.5px; color: var(--ink-faint); padding-top: 4px; }
+  .units-chart .tcln { fill: none; stroke: var(--series-1); stroke-width: 1.5; stroke-linejoin: round; }
+  .units-chart .tcpos { fill: var(--series-1); opacity: .16; }
+  .units-chart .be { stroke: var(--ink-faint); stroke-width: 1; stroke-dasharray: 5 4; }
+  .units-chart .shoe { stroke: var(--line); stroke-width: 1; }
+  .units-chart .belbl { fill: var(--ink-faint); font: 600 10px var(--sans); }
+  .tc-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 6px; margin-top: 8px; }
+  .tc-stats .stat { padding: 6px 8px; }
+  .tc-stats .stat .v { font-size: 16px; }
+  .tc-stats .stat .k { font-size: 10px; }
   .units-modal {
     position: fixed; inset: 0; z-index: 100; display: none; align-items: center; justify-content: center;
     background: rgba(8,14,11,.6); padding: 16px;
@@ -658,6 +668,16 @@
         </div>
       </details>
 
+      <details class="card review units-card" id="tcCard">
+        <summary class="pad">True count <span id="tcSub"></span></summary>
+        <div class="review-body units-body" id="tcSmall">
+          <div class="units-tools"><div class="tc-key">TC when you bet, each hand · shoes divided by faint lines</div><button type="button" class="units-expand" id="tcExpand" aria-label="Expand true count chart">Expand ⤢</button></div>
+          <div class="units-chart" data-chart role="img" aria-label="True count over hands"></div>
+          <div class="units-tip" data-tip role="status"></div>
+          <div class="tc-stats" data-stats></div>
+        </div>
+      </details>
+
       <details class="card review" id="reviewCard">
         <summary class="pad">Review <span>mistakes · leaks · quiz log</span></summary>
         <div class="review-body">
@@ -703,6 +723,16 @@
   </div>
 </div>
 
+<div class="units-modal" id="tcModal" role="dialog" aria-modal="true" aria-labelledby="tcModalTitle">
+  <div class="box units-body" id="tcBig">
+    <div class="head"><h2 id="tcModalTitle">True count</h2><span data-sub></span><button type="button" class="units-expand" id="tcClose">Close ✕</button></div>
+    <div class="units-chart" data-chart role="img" aria-label="True count over hands"></div>
+    <div class="units-tip" data-tip role="status"></div>
+    <div class="tc-stats" data-stats></div>
+    <div class="note">The true count when you placed each bet. Above the dashed break-even line (TC +1) the game favors you; below it the house has the edge. Faint vertical lines mark new shoes. Esc closes.</div>
+  </div>
+</div>
+
 <div class="units-modal" id="unitsModal" role="dialog" aria-modal="true" aria-labelledby="unitsModalTitle">
   <div class="box units-body" id="unitsBig">
     <div class="head"><h2 id="unitsModalTitle">Net units</h2><span data-sub></span><button type="button" class="units-expand" id="unitsClose">Close ✕</button></div>
@@ -735,7 +765,7 @@
   // ---------- Storage (per-viewer convenience) ----------
   var KEY = 'count-trainer-v1';
   function load() { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return null; } }
-  var CHART_KEYS = ['history', 'evHistory', 'evpHistory', 'tcHistory', 'tcRampHistory'];
+  var CHART_KEYS = ['history', 'evHistory', 'evpHistory', 'tcHistory', 'tcRampHistory', 'tcSeries', 'shoeSeries'];
   function thinOldest() {
     // keep the newest half of the chart at full detail, every other point in the older half
     var n = (stats.history || []).length; if (n < 200) return false;
@@ -760,7 +790,7 @@
   function freshStats() {
     return { hands: 0, decisions: 0, correct: 0, cats: { hard: [0, 0], soft: [0, 0], pair: [0, 0], ins: [0, 0], dev: [0, 0], bet: [0, 0] },
       quizzes: 0, quizCorrect: 0, quizErr: 0, rcQ: 0, rcCorrect: 0, tcQ: 0, tcCorrect: 0, net: 0, streak: 0, best: 0, shoes: 1,
-      mistakes: [], leaks: {}, quizLog: [], history: [], evHistory: [], evpHistory: [], tcHistory: [], tcRampHistory: [], handLog: [], ev: 0, evp: 0 };
+      mistakes: [], leaks: {}, quizLog: [], history: [], evHistory: [], evpHistory: [], tcHistory: [], tcRampHistory: [], tcSeries: [], shoeSeries: [], handLog: [], ev: 0, evp: 0 };
   }
   var saved = load() || {};
   var settings = Object.assign({}, DEFAULT_SETTINGS, saved.settings || {});
@@ -787,7 +817,7 @@
     // the log holds the most recent hands, in order, so it lines up with the end of the units history;
     // only fill gaps so TC data older than the 1,000-hand log is never lost
     var pad = hist.length - log.length;
-    [['tcHistory', 'tcYou'], ['tcRampHistory', 'tcRamp']].forEach(function (pr) {
+    [['tcHistory', 'tcYou'], ['tcRampHistory', 'tcRamp'], ['tcSeries', 'tc'], ['shoeSeries', 'shoe']].forEach(function (pr) {
       var arr = stats[pr[0]] || [];
       while (arr.length < hist.length) arr.unshift(null);
       if (arr.length > hist.length) arr = arr.slice(-hist.length);
@@ -1383,6 +1413,12 @@
       stats.evpHistory = stats.evpHistory || [];
       while (stats.evpHistory.length < stats.history.length - 1) stats.evpHistory.unshift(null);
       stats.evpHistory.push(Math.round(evp * 1000) / 1000);
+      [['tcSeries', curLog.tc], ['shoeSeries', curLog.shoe]].forEach(function (pr) {
+        var arr = stats[pr[0]] = stats[pr[0]] || [];
+        while (arr.length < stats.history.length - 1) arr.unshift(null);
+        arr.push(pr[1]);
+        if (arr.length > stats.history.length) stats[pr[0]] = arr.slice(-stats.history.length);
+      });
       ['tcHistory', 'tcRampHistory'].forEach(function (key, j) {
         var arr = stats[key] = stats[key] || [];
         while (arr.length < stats.history.length - 1) arr.unshift(null);
@@ -1808,6 +1844,121 @@
     host.setAttribute('aria-label', 'Net units over ' + n + ' hands. ' + shown.map(function (sr) { return sr.name + ' ' + fmtSigned(D.vals[sr.key][n] || 0, 1); }).join('; ') + '.');
     chartState[box.id] = { D: D, shown: shown, x: x, y: y, n: n };
   }
+  // ---------- True count chart ----------
+  var tcState = {};
+  function tcSummary() {
+    var tcs = (stats.tcSeries || []).filter(function (v) { return v !== null && v !== undefined; });
+    var log = stats.handLog || [];
+    var n = tcs.length;
+    if (!n) return { n: 0 };
+    var avg = tcs.reduce(function (a, v) { return a + v; }, 0) / n;
+    var cnt = function (f) { return tcs.filter(f).length; };
+    var shoes = {}; (stats.shoeSeries || []).forEach(function (s) { if (s !== null && s !== undefined) shoes[s] = 1; });
+    // what the ramp would expect per 100 hands at the counts you actually saw
+    var rampEV = 0; tcs.forEach(function (tc) { rampEV += Math.max(1, Math.min(settings.spread, Math.floor(tc) - 1)) * (-0.0055 + 0.005 * tc); });
+    return {
+      n: n, avg: avg, max: Math.max.apply(null, tcs), min: Math.min.apply(null, tcs), shoes: Object.keys(shoes).length,
+      atOrBelow1: cnt(function (v) { return v < 2; }) / n, at2: cnt(function (v) { return v >= 2; }) / n,
+      at3: cnt(function (v) { return v >= 3; }) / n, at5: cnt(function (v) { return v >= 5; }) / n,
+      rampPer100: rampEV / n * 100
+    };
+  }
+  function tcStatsHTML(S) {
+    if (!S.n) return '';
+    var pc = function (x) { return Math.round(x * 100) + '%'; };
+    var st = function (k, v, sub) { return '<div class="stat"><div class="k">' + k + '</div><div class="v">' + v + '</div>' + (sub ? '<div class="sub">' + sub + '</div>' : '') + '</div>'; };
+    return st('Avg TC', fmtSigned(S.avg, 2)) + st('TC +1 or less', pc(S.atOrBelow1), 'house edge') + st('TC +2 up', pc(S.at2)) +
+      st('TC +3 up', pc(S.at3), 'ramp > 1 unit') + st('TC +5 up', pc(S.at5)) + st('Highest', fmtSigned(S.max, 1)) +
+      st('Ramp theo', fmtSigned(S.rampPer100, 2), 'units / 100 hands');
+  }
+  function drawTC(box) {
+    var host = box.querySelector('[data-chart]');
+    var tcs = stats.tcSeries || [], shoes = stats.shoeSeries || [];
+    var first = tcs.findIndex(function (v) { return v !== null && v !== undefined; });
+    box.querySelector('[data-stats]').innerHTML = tcStatsHTML(tcSummary());
+    if (first < 0 || tcs.length - first < 2) { host.innerHTML = '<div class="units-empty">Play a few hands to see the true count over time.</div>'; tcState[box.id] = null; return; }
+    var data = tcs.slice(first), sh = shoes.slice(first), n = data.length - 1, base = first + 1;  // hand numbers in the units history
+    var W = host.clientWidth || 280, H = host.clientHeight || 150, big = box.id === 'tcBig';
+    var padL = big ? 40 : 28, padR = big ? 16 : 10, padT = 10, padB = big ? 24 : 18;
+    var vals = data.filter(function (v) { return v !== null; });
+    var lo = Math.min(-3, Math.floor(Math.min.apply(null, vals))), hi = Math.max(4, Math.ceil(Math.max.apply(null, vals)));
+    var x = function (i) { return padL + (W - padL - padR) * i / n; };
+    var y = function (v) { return padT + (H - padT - padB) * (hi - v) / (hi - lo); };
+    var svg = '<svg class="plot" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">';
+    // shoe boundaries
+    for (var i = 1; i <= n; i++) if (sh[i] !== sh[i - 1] && sh[i] != null && sh[i - 1] != null) svg += '<line class="shoe" x1="' + x(i) + '" x2="' + x(i) + '" y1="' + padT + '" y2="' + (H - padB) + '"/>';
+    // axis labels
+    var stepT = big ? 1 : Math.max(1, Math.ceil((hi - lo) / 4));
+    for (var t = Math.ceil(lo / stepT) * stepT; t <= hi; t += stepT) {
+      if (big && t !== 0) svg += '<line class="grid" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(t) + '" y2="' + y(t) + '"/>';
+      svg += '<text class="ax" x="' + (padL - 6) + '" y="' + (y(t) + 3.5) + '" text-anchor="end">' + (t > 0 ? '+' : '') + t + '</text>';
+    }
+    svg += '<line class="zero" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(0) + '" y2="' + y(0) + '"/>' +
+      '<line class="be" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(1) + '" y2="' + y(1) + '"/>' +
+      '<text class="belbl" x="' + (padL + 4) + '" y="' + (y(1) - 4) + '">break-even +1</text>' +
+      '<text class="ax" x="' + padL + '" y="' + (H - 3) + '">hand ' + base + '</text>' +
+      '<text class="ax" x="' + (W - padR) + '" y="' + (H - 3) + '" text-anchor="end">' + (base + n) + '</text>';
+    // shaded area above break-even + the TC line (sampled when long)
+    var stride = Math.max(1, Math.floor(n / ((W - padL - padR) * 1.5)));
+    var d = '', area = '', pen = false;
+    for (var j = 0; j <= n; j++) {
+      var v = data[j];
+      if (v === null) { pen = false; continue; }
+      if (j % stride && j !== n) continue;
+      d += (pen ? 'L' : 'M') + x(j).toFixed(1) + ' ' + y(v).toFixed(1); pen = true;
+      if (v > 1) area += 'M' + x(j).toFixed(1) + ' ' + y(1).toFixed(1) + 'V' + y(v).toFixed(1);
+    }
+    svg += '<path class="tcpos" d="' + area + '" stroke="var(--series-1)" stroke-opacity=".35" stroke-width="' + Math.max(1, (W - padL - padR) / Math.max(n, 1) * stride) + '"/>';
+    svg += '<path class="tcln" d="' + d + '"/>';
+    svg += '<g class="hov" style="display:none"><line class="hair" y1="' + padT + '" y2="' + (H - padB) + '"/><circle class="hdot" r="4" fill="var(--series-1)"/></g></svg>';
+    host.innerHTML = svg;
+    host.setAttribute('aria-label', 'True count over ' + (n + 1) + ' hands, ranging ' + fmtSigned(lo, 0) + ' to ' + fmtSigned(Math.max.apply(null, vals), 1) + '.');
+    tcState[box.id] = { data: data, sh: sh, x: x, y: y, n: n, base: base };
+  }
+  function renderTC() {
+    var S = tcSummary();
+    var sub = S.n ? S.n + ' hands · ' + S.shoes + ' shoe' + (S.shoes === 1 ? '' : 's') + ' · ' + Math.round(S.at3 * 100) + '% at +3 or more' : '';
+    document.getElementById('tcSub').textContent = sub;
+    document.querySelector('#tcBig [data-sub]').textContent = sub;
+    if (document.getElementById('tcCard').open) drawTC(document.getElementById('tcSmall'));
+    if (document.getElementById('tcModal').classList.contains('on')) drawTC(document.getElementById('tcBig'));
+  }
+  (function () {
+    ['tcSmall', 'tcBig'].forEach(function (id) {
+      var box = document.getElementById(id), host = box.querySelector('[data-chart]'), tip = box.querySelector('[data-tip]');
+      function hide() { tip.classList.remove('on'); var g = host.querySelector('.hov'); if (g) g.style.display = 'none'; }
+      function show(e) {
+        var st = tcState[id]; if (!st) return hide();
+        var r = host.getBoundingClientRect(), px = e.clientX - r.left;
+        var i = Math.max(0, Math.min(st.n, Math.round((px - st.x(0)) / (st.x(1) - st.x(0)))));
+        var v = st.data[i]; var g = host.querySelector('.hov'); if (!g || v === null) return hide();
+        g.style.display = '';
+        g.querySelector('.hair').setAttribute('x1', st.x(i)); g.querySelector('.hair').setAttribute('x2', st.x(i));
+        g.querySelector('.hdot').setAttribute('cx', st.x(i)); g.querySelector('.hdot').setAttribute('cy', st.y(v));
+        tip.textContent = 'Hand ' + (st.base + i) + (st.sh[i] != null ? ' · shoe ' + st.sh[i] : '') + ' · TC ' + fmtSigned(v, 1) +
+          ' · ramp ' + Math.max(1, Math.min(settings.spread, Math.floor(v) - 1)) + 'u';
+        var br = box.getBoundingClientRect();
+        tip.classList.add('on');
+        var tw = tip.offsetWidth, left = r.left - br.left + st.x(i);
+        tip.style.left = Math.min(Math.max(left, tw / 2 + 4), br.width - tw / 2 - 4) + 'px';
+        tip.style.top = (r.top - br.top + 6) + 'px';
+        tip.style.transform = 'translate(-50%, 0)';
+      }
+      host.addEventListener('pointermove', show); host.addEventListener('pointerdown', show); host.addEventListener('pointerleave', hide);
+    });
+    var modal = document.getElementById('tcModal');
+    function openBig() { modal.classList.add('on'); renderTC(); document.getElementById('tcClose').focus(); }
+    function closeBig() { modal.classList.remove('on'); document.getElementById('tcExpand').focus(); }
+    document.getElementById('tcExpand').addEventListener('click', openBig);
+    document.getElementById('tcClose').addEventListener('click', closeBig);
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeBig(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.classList.contains('on')) { e.stopPropagation(); closeBig(); } }, true);
+    var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(renderTC, 120); });
+    var c = document.getElementById('tcCard');
+    try { if (localStorage.getItem('trainer-tc-open') === '1') c.open = true; } catch (e) {}
+    c.addEventListener('toggle', function () { try { localStorage.setItem('trainer-tc-open', c.open ? '1' : '0'); } catch (e) {} renderTC(); });
+  })();
+
   function renderUnits() {
     var D = unitsData(), n = D.n;
     document.getElementById('unitsSub').textContent = n ? 'over ' + n + (n === 1 ? ' hand' : ' hands') : '';
@@ -1877,7 +2028,7 @@
   })();
 
   function renderStats() {
-    renderUnits(); renderHistory();
+    renderUnits(); renderTC(); renderHistory();
     document.getElementById('sAcc').textContent = pct(stats.correct, stats.decisions);
     document.getElementById('sAccSub').textContent = stats.correct + ' / ' + stats.decisions + ' decisions';
     document.getElementById('sQuiz').textContent = pct(stats.quizCorrect, stats.quizzes);
