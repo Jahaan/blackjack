@@ -499,6 +499,16 @@
   .cat-row .pct { text-align: right; font-family: var(--mono); font-size: 11.5px; color: var(--ink-soft); }
 
   .list { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; max-height: 360px; overflow-y: auto; }
+  .cheat-status { font-size: 12px; color: var(--ink-soft); margin-bottom: 8px; }
+  .cheat-status b { color: var(--ink); }
+  .cheat h4 { margin: 10px 0 4px; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
+  .cheat h4:first-child { margin-top: 0; }
+  .cheat table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .cheat td { padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .cheat td.h { font-family: var(--mono); font-weight: 700; white-space: nowrap; width: 1%; }
+  .cheat td.a { font-weight: 700; white-space: nowrap; }
+  .cheat td.w { font-family: var(--mono); white-space: nowrap; text-align: right; }
+  .cheat td.n { color: var(--ink-faint); font-size: 11px; }
   .list-count { font-size: 11.5px; color: var(--ink-faint); margin-bottom: 2px; }
   .list .item { display: flex; justify-content: space-between; gap: 8px; padding: 7px 9px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--line); }
   .list .item .l { font-weight: 600; }
@@ -710,6 +720,15 @@
           <div class="sc-head"><b>Bets by true count</b><span class="tc-key"><span><i class="k-on"></i>On the ramp</span><span><i class="k-off"></i>Off the ramp</span><span><i class="k-ramp"></i>Ramp</span></span></div>
           <div class="units-chart sc-chart" data-scatter role="img" aria-label="Bets by true count"></div>
           <div class="units-tip" data-stip role="status"></div>
+        </div>
+      </details>
+
+      <details class="card review" id="cheatCard">
+        <summary class="pad">Index plays <span>cheat sheet</span></summary>
+        <div class="review-body">
+          <div class="cheat-status" id="cheatStatus"></div>
+          <div class="cheat" id="cheatSheet"></div>
+          <div class="hint">TC is the exact true count at the moment you decide. "≥" means at or above; "&lt;" means below. Hard totals only; pairs you'd normally split keep basic strategy.</div>
         </div>
       </details>
 
@@ -1033,6 +1052,36 @@
     { pair: 10, u: 5, idx: 5, dir: 'ge', act: 'P' },
     { pair: 10, u: 6, idx: 4, dir: 'ge', act: 'P' }
   ];
+  // Cheat sheet, generated from DEVS so it always matches grading
+  function renderCheat() {
+    var groups = [
+      ['Stand instead of hit', function (d) { return d.act === 'S'; }],
+      ['Hit instead of stand', function (d) { return d.act === 'H' && !d.onlyR; }],
+      ['Double', function (d) { return d.act === 'D'; }],
+      ['Split tens', function (d) { return d.act === 'P'; }],
+      ['Surrender (first two cards)', function (d) { return d.act === 'R' || d.onlyR; }]
+    ];
+    var AN = { S: 'Stand', H: 'Hit', D: 'Double', P: 'Split', R: 'Surrender' };
+    var row = function (hand, up, act, when, note) {
+      return '<tr><td class="h">' + hand + '</td><td class="n">vs ' + up + '</td><td class="a">' + act + '</td><td class="w">' + when + '</td></tr>' +
+        (note ? '<tr><td></td><td colspan="3" class="n">' + note + '</td></tr>' : '');
+    };
+    var html = '';
+    groups.forEach(function (g) {
+      var rows = DEVS.filter(g[1]);
+      if (!rows.length) return;
+      html += '<h4>' + g[0] + '</h4><table>' + rows.map(function (d) {
+        var when = 'TC ' + (d.dir === 'ge' ? '≥ ' : '< ') + (d.idx > 0 ? '+' : d.idx < 0 ? '−' : '') + Math.abs(d.idx);
+        var note = d.noR ? 'only when surrender isn\'t available' : d.onlyR ? 'instead of surrendering' : '';
+        return row(d.pair ? '10,10' : d.t, upLabel(d.u), AN[d.act], when, note);
+      }).join('') + '</table>';
+    });
+    html += '<h4>Insurance</h4><table>' + row('—', 'A', 'Take insurance', 'TC ≥ +3', 'decline below +3') + '</table>';
+    document.getElementById('cheatSheet').innerHTML = html;
+    document.getElementById('cheatStatus').innerHTML = settings.devs
+      ? '<b>Grading is on</b> for these plays (Grade count deviations).'
+      : 'Grading is <b>off</b>: you\'re graded on basic strategy only. Turn on <b>Grade count deviations</b> in settings to be graded on these.';
+  }
   function devPlay(cards, u, legal, tc) {
     var tt = total(cards);
     var pair = cards.length === 2 && cval(cards[0].r) === cval(cards[1].r);
@@ -2482,6 +2531,12 @@
     }
     el.innerHTML = h;
   }
+  renderCheat();
+  (function () {
+    var cc = document.getElementById('cheatCard');
+    try { if (localStorage.getItem('trainer-cheat-open') === '1') cc.open = true; } catch (e) {}
+    cc.addEventListener('toggle', function () { try { localStorage.setItem('trainer-cheat-open', cc.open ? '1' : '0'); } catch (e) {} });
+  })();
   (function () {
     var rc = document.getElementById('reviewCard');
     try { if (localStorage.getItem('trainer-review-open') === '1') rc.open = true; } catch (e) {}
@@ -2511,6 +2566,7 @@
     if (key === 'bots' || key === 'seat') setFeedback('', '↻', 'Table changes take effect next hand.');
     if (key === 'quiz') scheduleQuiz();
     if (key === 'hideTotals') { syncTotalsBtn(); if (seats.length) render(); }
+    if (key === 'devs') renderCheat();
     document.getElementById('chipDecks').textContent = settings.decks + ' decks';
     renderMeters(); renderStats(); renderActs();
   }
