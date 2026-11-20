@@ -435,6 +435,42 @@
   .units-modal .units-chart.sc-chart { height: min(46vh, 400px); }
   .sc-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 14px 0 6px; font-size: 12.5px; }
   .sc-head .tc-key { padding-top: 0; flex: 1; }
+  /* Drills */
+  .drill-box { max-width: 640px; }
+  .drill-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  @media (max-width: 560px) { .drill-cards { grid-template-columns: 1fr; } }
+  .drill-pick {
+    text-align: left; border: 1px solid var(--line-strong); background: var(--panel-2); border-radius: 12px; padding: 12px; cursor: pointer;
+    display: flex; flex-direction: column; gap: 4px; color: var(--ink); font-family: var(--sans);
+  }
+  .drill-pick:hover { border-color: var(--accent); }
+  .drill-pick b { font-size: 15px; }
+  .drill-pick span { font-size: 12px; color: var(--ink-soft); line-height: 1.35; }
+  .drill-len { display: flex; align-items: center; gap: 10px; margin-top: 12px; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+  .drill-len .tabs { margin: 0; width: 160px; }
+  .drill-top { display: flex; gap: 12px; font-size: 12.5px; color: var(--ink-soft); margin-bottom: 8px; }
+  .drill-top #drillName { font-weight: 700; color: var(--ink); }
+  .drill-top #drillScoreLive { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .drill-felt {
+    position: relative; border-radius: 12px; padding: 14px 14px 16px; color: #eef5ef; text-align: center;
+    background: radial-gradient(90% 70% at 50% 0%, rgba(255,255,255,.08), transparent 60%), linear-gradient(180deg, #13603c, #0b3f27);
+  }
+  .drill-row + .drill-row { margin-top: 10px; }
+  .drill-tc {
+    position: absolute; top: 10px; right: 12px; font: 800 15px/1 var(--mono); background: rgba(0,0,0,.35); border: 1px solid rgba(247,231,184,.5);
+    color: #f7e7b8; padding: 6px 10px; border-radius: 999px;
+  }
+  .drill-tc:empty { display: none; }
+  .drill-q { margin-top: 10px; font-weight: 700; color: #f7e7b8; min-height: 20px; }
+  .drill-acts { margin-top: 10px; }
+  .drill-acts.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 560px) { .drill-acts { gap: 5px; } .drill-acts .act { font-size: 12px; padding: 0 2px; } }
+  #drillNext { margin-top: 10px; }
+  .drill-final { text-align: center; margin: 6px 0 14px; }
+  .drill-final .big { font-size: 40px; font-weight: 800; letter-spacing: -.02em; }
+  .drill-final .sub { color: var(--ink-soft); font-size: 13px; }
+  .drill-end-btns { display: flex; gap: 8px; margin-top: 12px; }
+  .drill-end-btns .primary { flex: 1; }
   .sim-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 10px; }
   .sim-controls label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
   .sim-controls select { height: 34px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--panel-2); color: var(--ink); font-size: 13px; padding: 0 8px; }
@@ -685,6 +721,7 @@
           <button class="chip-btn" id="quizNowBtn" type="button">Quiz me next hand</button>
           <button class="chip-btn" id="totalsBtn" type="button" aria-pressed="false">Hide totals</button>
           <button class="chip-btn" id="simBtn" type="button">Simulate perfect play</button>
+          <button class="chip-btn" id="drillBtn" type="button">Drills</button>
         </div>
       </div>
     </main>
@@ -774,6 +811,39 @@
         <div class="hint"><button class="link-btn" id="resetBtn" type="button">Reset all stats</button></div>
       </div>
     </aside>
+  </div>
+</div>
+
+<div class="units-modal" id="drillModal" role="dialog" aria-modal="true" aria-labelledby="drillTitle">
+  <div class="box drill-box" id="drillBox">
+    <div class="head"><h2 id="drillTitle">Drills</h2><span id="drillSub">practice only · never affects your stats</span><button type="button" class="units-expand" id="drillClose">Close ✕</button></div>
+    <div id="drillPick">
+      <div class="drill-cards">
+        <button type="button" class="drill-pick" data-drill="dev"><b>Deviations</b><span>The 20 index plays (incl. insurance). True count shown, set just above or below each trigger.</span></button>
+        <button type="button" class="drill-pick" data-drill="soft"><b>Soft totals</b><span>A,2 to A,9 vs every upcard, plus some 3-card soft hands where you can't double.</span></button>
+        <button type="button" class="drill-pick" data-drill="dbl"><b>Doubles</b><span>Hard 8–11 and soft 13–19: double, or not?</span></button>
+      </div>
+      <div class="drill-len">Hands per drill
+        <span class="tabs" id="drillLen"><button type="button" data-n="10">10</button><button type="button" class="on" data-n="20">20</button><button type="button" data-n="30">30</button></span>
+      </div>
+    </div>
+    <div id="drillPlay" hidden>
+      <div class="drill-top"><span id="drillName"></span><span id="drillProg"></span><span id="drillScoreLive"></span></div>
+      <div class="drill-felt">
+        <div class="drill-tc" id="drillTC"></div>
+        <div class="drill-row"><div class="zone-label">Dealer</div><div class="cards" id="drillDealer"></div></div>
+        <div class="drill-row"><div class="zone-label">You</div><div class="cards" id="drillYou"></div></div>
+        <div class="drill-q" id="drillQ"></div>
+      </div>
+      <div class="acts drill-acts" id="drillActs"></div>
+      <div class="feedback" id="drillFb"></div>
+      <button type="button" class="primary" id="drillNext" hidden>Next ↵</button>
+    </div>
+    <div id="drillEnd" hidden>
+      <div class="drill-final" id="drillFinal"></div>
+      <div class="list" id="drillMisses"></div>
+      <div class="drill-end-btns"><button type="button" class="primary" id="drillAgain">Run it again</button><button type="button" class="chip-btn" id="drillBack">Choose another drill</button></div>
+    </div>
   </div>
 </div>
 
@@ -1989,6 +2059,151 @@
     host.setAttribute('aria-label', 'Net units over ' + n + ' hands. ' + shown.map(function (sr) { return sr.name + ' ' + fmtSigned(D.vals[sr.key][n] || 0, 1); }).join('; ') + '.');
     chartState[box.id] = { D: D, shown: shown, x: x, y: y, n: n };
   }
+  // ---------- Drills: practice only, never touches stats ----------
+  (function () {
+    var D = { kind: null, n: 20, i: 0, score: 0, misses: [], q: null, answered: false };
+    var NAMES = { dev: 'Deviations', soft: 'Soft totals', dbl: 'Doubles' };
+    var TENS = ['10', 'J', 'Q', 'K'];
+    var ri = function (n) { return Math.floor(Math.random() * n); };
+    var pick = function (a) { return a[ri(a.length)]; };
+    var rankOf = function (v) { return v === 11 ? 'A' : v === 10 ? pick(TENS) : String(v); };
+    var card = function (v) { return { r: rankOf(v), s: pick(SUITS) }; };
+    function hardCards(t, n) {                       // n non-ace cards summing to t, never a pair when n = 2
+      for (var tries = 0; tries < 200; tries++) {
+        var vals = [], left = t;
+        for (var k = 0; k < n - 1; k++) { var lo = Math.max(2, left - 10 * (n - 1 - k)), hi = Math.min(10, left - 2 * (n - 1 - k)); if (lo > hi) break; var v = lo + ri(hi - lo + 1); vals.push(v); left -= v; }
+        if (vals.length !== n - 1 || left < 2 || left > 10) continue;
+        vals.push(left);
+        if (n === 2 && vals[0] === vals[1]) continue;
+        return vals.map(card);
+      }
+      return null;
+    }
+    function softCards(t, n) {                       // ace + (n-1) small cards making soft t
+      if (n === 2) return [card(11), card(t - 11)];
+      for (var tries = 0; tries < 200; tries++) { var a = 2 + ri(t - 11 - 3); var b = t - 11 - a; if (b >= 2 && b <= 9) return [card(11), card(a), card(b)]; }
+      return [card(11), card(t - 11)];
+    }
+    function legalFor(cards, canSurrender) {
+      var L = ['H', 'S'];
+      if (cards.length === 2) { L.push('D'); if (cval(cards[0].r) === cval(cards[1].r)) L.push('P'); if (canSurrender) L.push('R'); }
+      return L;
+    }
+    function makeQ() {
+      if (D.kind === 'dev') {
+        if (Math.random() < 1 / 20) {               // insurance
+          var tcI = Math.round((3 + (Math.random() * 5 - 2.5)) * 10) / 10;
+          return { ins: true, up: 11, cards: hardCards(8 + ri(10), 2), tc: tcI, legal: ['I', 'N'], right: tcI >= 3 ? 'I' : 'N', why: 'Insurance: take at TC ≥ +3' };
+        }
+        var d = pick(DEVS);
+        var tc = Math.round((d.idx + (Math.random() * 5 - 2.5)) * 10) / 10;
+        var cards = d.pair ? [card(10), card(10)] : hardCards(d.t, d.noR ? 3 : 2);
+        var legal = d.noR ? ['H', 'S'] : legalFor(cards, true);
+        var c = correctPlay(cards, d.u, legal, tc, true);
+        var basic = correctPlay(cards, d.u, legal, tc, false).action;
+        var when = (d.dir === 'ge' ? '≥ ' : '< ') + (d.idx > 0 ? '+' : '') + d.idx;
+        return { up: d.u, cards: cards, tc: tc, legal: legal, right: c.action,
+          why: (d.pair ? '10,10' : d.t) + ' vs ' + upLabel(d.u) + ': ' + ACT_NAME[d.act] + ' at TC ' + when + ' (basic: ' + ACT_NAME[basic] + ')' + (d.noR ? ' · surrender not available' : '') };
+      }
+      var up = pick([2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 10, 10, 11]);
+      var cs;
+      if (D.kind === 'soft') cs = Math.random() < 0.25 ? softCards(15 + ri(5), 3) : softCards(13 + ri(8), 2);
+      else cs = Math.random() < 0.5 ? hardCards(8 + ri(4), 2) : softCards(13 + ri(7), 2);
+      var lg = legalFor(cs, true);
+      var cc = correctPlay(cs, up, lg, 0, false);
+      var tt = total(cs);
+      return { up: up, cards: cs, tc: null, legal: lg, right: cc.action,
+        why: (tt.soft ? 'Soft ' : 'Hard ') + tt.t + ' vs ' + upLabel(up) + ': ' + ACT_NAME[cc.action] + (cs.length > 2 && tt.soft ? ' (3 cards, so no double)' : '') };
+    }
+    function cardHtml(c) {
+      var red = c.s === '♥' || c.s === '♦';
+      return '<div class="pc' + (red ? ' red' : '') + '"><span class="r">' + c.r + '</span><span class="sm">' + c.s + '</span><span class="s">' + c.s + '</span></div>';
+    }
+    var BTN = { H: 'Hit', S: 'Stand', D: 'Double', P: 'Split', R: 'Surrender', I: 'Take insurance', N: 'No insurance' };
+    function showQ() {
+      D.q = makeQ(); D.answered = false;
+      var q = D.q;
+      document.getElementById('drillName').textContent = NAMES[D.kind];
+      document.getElementById('drillProg').textContent = 'Hand ' + (D.i + 1) + ' of ' + D.n;
+      document.getElementById('drillScoreLive').textContent = D.score + ' / ' + D.i + ' right';
+      document.getElementById('drillTC').textContent = q.tc != null ? 'TC ' + (q.tc > 0 ? '+' : '') + q.tc.toFixed(1) : '';
+      document.getElementById('drillDealer').innerHTML = cardHtml({ r: rankOf(q.up), s: pick(SUITS) }) + '<div class="pc back"></div>';
+      document.getElementById('drillYou').innerHTML = q.cards.map(cardHtml).join('');
+      document.getElementById('drillQ').textContent = q.ins ? 'Dealer shows an ace. Insurance?' : (q.cards.length > 2 ? 'Your move (3 cards: no double or surrender)' : 'Your move');
+      var keys = q.ins ? ['I', 'N'] : ['H', 'S', 'D', 'P', 'R'];
+      var acts = document.getElementById('drillActs');
+      acts.className = 'acts drill-acts' + (q.ins ? ' n2' : '');
+      acts.innerHTML = keys.map(function (k) { return '<button class="act" type="button" data-a="' + k + '"' + (q.legal.indexOf(k) < 0 ? ' disabled' : '') + '>' + BTN[k] + '<kbd>' + k + '</kbd></button>'; }).join('');
+      var fb = document.getElementById('drillFb'); fb.className = 'feedback'; fb.innerHTML = '<span class="ic">?</span><span>' + (D.kind === 'dev' ? 'Use the true count shown.' : 'Basic strategy (dealer hits soft 17, late surrender).') + '</span>';
+      document.getElementById('drillNext').hidden = true;
+    }
+    function answer(a) {
+      if (D.answered || !D.q || D.q.legal.indexOf(a) < 0) return;
+      D.answered = true;
+      var q = D.q, ok = a === q.right;
+      if (ok) D.score++;
+      else D.misses.push({ hand: q.cards.map(function (c) { return c.r; }).join(' ') + ' vs ' + upLabel(q.up) + (q.tc != null ? ' · TC ' + (q.tc > 0 ? '+' : '') + q.tc.toFixed(1) : ''), you: BTN[a], right: BTN[q.right], why: q.why });
+      var fb = document.getElementById('drillFb');
+      fb.className = 'feedback ' + (ok ? 'good' : 'bad');
+      fb.innerHTML = '<span class="ic">' + (ok ? '✓' : '✗') + '</span><span>' + (ok ? '<b>' + BTN[a] + '</b> is right. ' : 'You chose <b>' + BTN[a] + '</b>; the play is <b>' + BTN[q.right] + '</b>. ') + esc(q.why) + '</span>';
+      Array.prototype.forEach.call(document.querySelectorAll('#drillActs .act'), function (b) { b.disabled = true; if (b.getAttribute('data-a') === q.right) b.classList.add('go'); });
+      D.i++;
+      document.getElementById('drillScoreLive').textContent = D.score + ' / ' + D.i + ' right';
+      var nx = document.getElementById('drillNext'); nx.hidden = false; nx.textContent = D.i >= D.n ? 'See score ↵' : 'Next ↵'; nx.focus();
+    }
+    function finish() {
+      document.getElementById('drillPlay').hidden = true; document.getElementById('drillEnd').hidden = false;
+      var pctv = Math.round(D.score / D.n * 100);
+      document.getElementById('drillFinal').innerHTML = '<div class="sub">' + NAMES[D.kind] + ' · final score</div><div class="big">' + D.score + ' / ' + D.n + '</div><div class="sub">' + pctv + '% · ' +
+        (pctv === 100 ? 'perfect' : pctv >= 90 ? 'sharp' : pctv >= 75 ? 'getting there' : 'keep drilling') + '</div>';
+      document.getElementById('drillMisses').innerHTML = D.misses.length
+        ? '<div class="list-count">Missed (' + D.misses.length + ')</div>' + D.misses.map(function (m) {
+            return '<div class="item" style="flex-direction:column;align-items:flex-start"><span class="l">' + esc(m.hand) + ' — you: ' + esc(m.you) + ', right: <b>' + esc(m.right) + '</b></span><span class="r" style="text-align:left">' + esc(m.why) + '</span></div>';
+          }).join('')
+        : '<div class="empty">No misses. 🎯</div>';
+      document.getElementById('drillAgain').focus();
+    }
+    function start(kind) {
+      D.kind = kind; D.i = 0; D.score = 0; D.misses = [];
+      document.getElementById('drillPick').hidden = true; document.getElementById('drillEnd').hidden = true; document.getElementById('drillPlay').hidden = false;
+      showQ();
+    }
+    function backToPick() { document.getElementById('drillPick').hidden = false; document.getElementById('drillPlay').hidden = true; document.getElementById('drillEnd').hidden = true; D.q = null; }
+    var modal = document.getElementById('drillModal'), pausedByDrill = false;
+    function open() {
+      modal.classList.add('on'); backToPick();
+      if (!paused) { pausedByDrill = true; document.getElementById('pauseBtn').click(); }
+      var f = modal.querySelector('.drill-pick'); if (f) f.focus();
+    }
+    function close() {
+      modal.classList.remove('on'); D.q = null;
+      if (pausedByDrill && paused) document.getElementById('pauseBtn').click();
+      pausedByDrill = false;
+      document.getElementById('drillBtn').focus();
+    }
+    document.getElementById('drillBtn').addEventListener('click', open);
+    document.getElementById('drillClose').addEventListener('click', close);
+    modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+    modal.querySelector('.drill-cards').addEventListener('click', function (e) { var b = e.target.closest('[data-drill]'); if (b) start(b.getAttribute('data-drill')); });
+    document.getElementById('drillLen').addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-n]'); if (!b) return;
+      D.n = +b.getAttribute('data-n');
+      Array.prototype.forEach.call(this.children, function (x) { x.classList.toggle('on', x === b); });
+    });
+    document.getElementById('drillActs').addEventListener('click', function (e) { var b = e.target.closest('button[data-a]'); if (b) answer(b.getAttribute('data-a')); });
+    document.getElementById('drillNext').addEventListener('click', function () { if (D.i >= D.n) finish(); else showQ(); });
+    document.getElementById('drillAgain').addEventListener('click', function () { start(D.kind); });
+    document.getElementById('drillBack').addEventListener('click', backToPick);
+    document.addEventListener('keydown', function (e) {
+      if (!modal.classList.contains('on')) return;
+      if (e.key === 'Escape') { e.stopPropagation(); close(); return; }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      var k = e.key.toUpperCase();
+      if (D.q && !D.answered && 'HSDPRIN'.indexOf(k) >= 0 && k.length === 1) { e.preventDefault(); answer(k); return; }
+      if ((k === 'ENTER' || k === ' ') && D.q && D.answered && !document.getElementById('drillPlay').hidden) { e.preventDefault(); document.getElementById('drillNext').click(); }
+    }, true);
+  })();
+
   // ---------- Simulator: perfect play + perfect ramp betting, fully isolated from the real game ----------
   function makeSim(N, cfg) {
     var shoeS = [], cut = 0, dealtS = 0, rcS = 0, shoesS = 0;
