@@ -381,34 +381,67 @@
   .hist-empty { padding: 16px; text-align: center; color: var(--ink-faint); font-size: 12.5px; }
 
   /* Units history chart */
-  .units-card { --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; }
+  .units-card, .units-modal {
+    --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100; --series-5: #e87ba4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .units-card, :root:not([data-theme="light"]) .units-modal {
+      --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; --series-5: #d55181;
+    }
+  }
+  :root[data-theme="dark"] .units-card, :root[data-theme="dark"] .units-modal {
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; --series-5: #d55181;
+  }
   .units-body { position: relative; }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .units-card { --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; } }
-  :root[data-theme="dark"] .units-card { --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; }
-  .units-chart .ln3 { fill: none; stroke: var(--series-3); stroke-width: 2; stroke-dasharray: 5 4; stroke-linejoin: round; stroke-linecap: round; }
-  .units-chart .end3, .units-chart .hdot3 { fill: var(--series-3); stroke: var(--panel); stroke-width: 2; }
-  .units-legend i.dash { background: repeating-linear-gradient(90deg, var(--series-3) 0 5px, transparent 5px 8px) !important; }
-  .units-chart .ln2 { fill: none; stroke: var(--series-2); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-  .units-chart .end2 { fill: var(--series-2); stroke: var(--panel); stroke-width: 2; }
-  .units-chart .hdot2 { fill: var(--series-2); stroke: var(--panel); stroke-width: 2; }
-  .units-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11.5px; color: var(--ink-soft); margin: 0 0 6px; }
-  .units-legend i { display: inline-block; width: 14px; height: 2px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
   .units-card summary span { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink-faint); margin-left: 4px; }
-  .units-chart { position: relative; height: 140px; touch-action: pan-y; }
-  .units-chart svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  .units-tools { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 6px; }
+  .units-legend { display: flex; flex-wrap: wrap; gap: 4px; flex: 1; }
+  .units-legend button {
+    white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--panel); color: var(--ink-soft); font: 600 11px/1 var(--sans);
+  }
+  .units-legend button[aria-pressed="false"] { opacity: .45; text-decoration: line-through; }
+  .units-legend button:focus-visible, .units-expand:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .units-legend svg { width: 16px; height: 6px; flex: none; }
+  .units-expand {
+    flex: none; height: 24px; padding: 0 9px; border-radius: 7px; border: 1px solid var(--line-strong); background: var(--panel-2);
+    color: var(--ink); font: 600 11.5px/1 var(--sans); cursor: pointer;
+  }
+  .units-chart { position: relative; height: 150px; touch-action: pan-y; }
+  .units-chart svg.plot { display: block; width: 100%; height: 100%; overflow: visible; }
   .units-chart .zero { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 3 3; }
-  .units-chart .ln { fill: none; stroke: var(--series-1); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-  .units-chart .end { fill: var(--series-1); stroke: var(--panel); stroke-width: 2; }
+  .units-chart .grid { stroke: var(--line); stroke-width: 1; }
+  .units-chart .ln { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .units-chart .end, .units-chart .hdot { stroke: var(--panel); stroke-width: 2; }
   .units-chart .ax { fill: var(--ink-faint); font: 500 10.5px var(--mono); }
-  .units-chart .endlbl { fill: var(--ink); font: 700 11.5px var(--mono); }
+  .units-chart .endlbl { font: 700 11px var(--mono); }
   .units-chart .hair { stroke: var(--ink-faint); stroke-width: 1; }
-  .units-chart .hdot { fill: var(--series-1); stroke: var(--panel); stroke-width: 2; }
   .units-empty { height: 100%; display: grid; place-items: center; color: var(--ink-faint); font-size: 12.5px; text-align: center; }
   .units-tip {
-    position: absolute; pointer-events: none; display: none; max-width: 92%; white-space: normal !important; text-align: center; background: var(--ink); color: var(--panel); border-radius: 7px;
-    padding: 4px 8px; font: 600 11.5px/1.3 var(--mono); white-space: nowrap; transform: translate(-50%, -100%); z-index: 2;
+    position: absolute; pointer-events: none; display: none; background: var(--ink); color: var(--panel); border-radius: 8px;
+    padding: 6px 9px; font: 600 11.5px/1.45 var(--mono); transform: translate(-50%, -100%); z-index: 3; white-space: nowrap;
   }
   .units-tip.on { display: block; }
+  .units-tip .row { display: flex; align-items: center; gap: 6px; }
+  .units-tip .row i { width: 10px; height: 3px; border-radius: 2px; flex: none; }
+  .units-tip .row b { margin-left: auto; padding-left: 10px; }
+  .units-modal {
+    position: fixed; inset: 0; z-index: 100; display: none; align-items: center; justify-content: center;
+    background: rgba(8,14,11,.6); padding: 16px;
+  }
+  .units-modal.on { display: flex; }
+  .units-modal .box {
+    width: min(1100px, 100%); max-height: 100%; overflow: auto; background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 24px 60px rgba(0,0,0,.4); padding: 16px 18px; position: relative;
+  }
+  .units-modal .head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .units-modal .head h2 { margin: 0; font-size: 16px; }
+  .units-modal .head span { color: var(--ink-faint); font-size: 12.5px; }
+  .units-modal .head button { margin-left: auto; }
+  .units-modal .units-chart { height: min(62vh, 560px); }
+  .units-modal .units-chart .ax { font-size: 11.5px; }
+  .units-modal .units-chart .endlbl { font-size: 12px; }
+  .units-modal .note { font-size: 11.5px; color: var(--ink-faint); margin-top: 10px; }
 
   /* Sidebar */
   aside { display: flex; flex-direction: column; gap: 14px; }
@@ -617,10 +650,10 @@
 
       <details class="card review units-card" id="unitsCard">
         <summary class="pad">Net units <span id="unitsSub"></span></summary>
-        <div class="review-body units-body">
-          <div class="units-legend" id="unitsLegend"></div>
-          <div class="units-chart" id="unitsChart" role="img" aria-label="Net units over hands"></div>
-          <div class="units-tip" id="unitsTip" role="status"></div>
+        <div class="review-body units-body" id="unitsSmall">
+          <div class="units-tools"><div class="units-legend" data-legend></div><button type="button" class="units-expand" id="unitsExpand" aria-label="Expand chart">Expand ⤢</button></div>
+          <div class="units-chart" data-chart role="img" aria-label="Net units over hands"></div>
+          <div class="units-tip" data-tip role="status"></div>
         </div>
       </details>
 
@@ -669,6 +702,16 @@
   </div>
 </div>
 
+<div class="units-modal" id="unitsModal" role="dialog" aria-modal="true" aria-labelledby="unitsModalTitle">
+  <div class="box units-body" id="unitsBig">
+    <div class="head"><h2 id="unitsModalTitle">Net units</h2><span data-sub></span><button type="button" class="units-expand" id="unitsClose">Close ✕</button></div>
+    <div class="units-tools"><div class="units-legend" data-legend></div></div>
+    <div class="units-chart" data-chart role="img" aria-label="Net units over hands"></div>
+    <div class="units-tip" data-tip role="status"></div>
+    <div class="note">Solid lines use the cards you were dealt (theoretical value of your two cards vs the dealer's upcard). Dashed lines use only the true count when you bet (your edge ≈ −0.55% + 0.5% per TC). Click a legend item to show or hide a line. Esc closes.</div>
+  </div>
+</div>
+
 <script>
 (function () {
   'use strict';
@@ -697,7 +740,7 @@
   function freshStats() {
     return { hands: 0, decisions: 0, correct: 0, cats: { hard: [0, 0], soft: [0, 0], pair: [0, 0], ins: [0, 0], dev: [0, 0], bet: [0, 0] },
       quizzes: 0, quizCorrect: 0, quizErr: 0, rcQ: 0, rcCorrect: 0, tcQ: 0, tcCorrect: 0, net: 0, streak: 0, best: 0, shoes: 1,
-      mistakes: [], leaks: {}, quizLog: [], history: [], evHistory: [], evpHistory: [], handLog: [], ev: 0, evp: 0 };
+      mistakes: [], leaks: {}, quizLog: [], history: [], evHistory: [], evpHistory: [], tcHistory: [], tcRampHistory: [], handLog: [], ev: 0, evp: 0 };
   }
   var saved = load() || {};
   var settings = Object.assign({}, DEFAULT_SETTINGS, saved.settings || {});
@@ -1269,7 +1312,9 @@
       var ev3 = curLog.ev3 !== undefined ? curLog.ev3 : edge;
       var evp = curLog.bet * ev3;                                         // these 3 cards, perfect play
       var ev = evp - cost;                                                // these 3 cards, your play
-      var betCost = curLog.ramp != null ? (curLog.bet - curLog.ramp) * edge : 0; // >0 helped, <0 hurt
+      var tcYou = curLog.bet * edge;                                       // your bet x edge at the true count
+      var tcRamp = (curLog.ramp != null ? curLog.ramp : curLog.bet) * edge; // ramp bet x edge at the true count
+      var betCost = tcYou - tcRamp;                                        // >0 helped, <0 hurt
       stats.ev = (stats.ev || 0) + ev;
       stats.evp = (stats.evp || 0) + evp;
       var rec = {
@@ -1279,7 +1324,8 @@
         dealer: cs(dealer.cards), plays: curLog.plays,
         actual: Math.round((stats.net - curLog.netBefore) * 100) / 100, ev: Math.round(ev * 1000) / 1000,
         evp: Math.round(evp * 1000) / 1000, cost: Math.round(cost * 1000) / 1000,
-        ev3: Math.round(ev3 * 1000) / 1000, betCost: Math.round(betCost * 1000) / 1000, v: 2
+        ev3: Math.round(ev3 * 1000) / 1000, betCost: Math.round(betCost * 1000) / 1000, v: 2,
+        tcYou: Math.round(tcYou * 10000) / 10000, tcRamp: Math.round(tcRamp * 10000) / 10000
       };
       stats.handLog = stats.handLog || [];
       stats.handLog.push(rec);
@@ -1291,6 +1337,12 @@
       stats.evpHistory = stats.evpHistory || [];
       while (stats.evpHistory.length < stats.history.length - 1) stats.evpHistory.unshift(null);
       stats.evpHistory.push(Math.round(evp * 1000) / 1000);
+      ['tcHistory', 'tcRampHistory'].forEach(function (key, j) {
+        var arr = stats[key] = stats[key] || [];
+        while (arr.length < stats.history.length - 1) arr.unshift(null);
+        arr.push(Math.round((j ? tcRamp : tcYou) * 10000) / 10000);
+        if (arr.length > stats.history.length) stats[key] = arr.slice(-stats.history.length);
+      });
       if (stats.evpHistory.length > stats.history.length) stats.evpHistory = stats.evpHistory.slice(-stats.history.length);
       curLog = null;
     }
@@ -1556,9 +1608,10 @@
   function renderHistory() {
     var card = document.getElementById('histCard');
     var log = stats.handLog || [];
-    var act = 0, ev = 0, evp = 0, mis = 0, bc = 0, n = log.length, betN = 0, betOk = 0, plays = 0, playsOk = 0;
+    var act = 0, ev = 0, evp = 0, mis = 0, bc = 0, tcY = 0, tcR = 0, n = log.length, betN = 0, betOk = 0, plays = 0, playsOk = 0;
     log.forEach(function (h) {
       act += h.actual; ev += h.ev; evp += (h.evp !== undefined ? h.evp : h.ev); mis += (h.cost || 0); bc += (h.betCost || 0);
+      tcY += (h.tcYou || 0); tcR += (h.tcRamp || 0);
       if (h.betOk !== null && h.betOk !== undefined) { betN++; if (h.betOk) betOk++; }
       h.plays.forEach(function (p) { plays++; if (p.ok) playsOk++; });
     });
@@ -1570,7 +1623,9 @@
       '<div class="stat"><div class="k">Theo · perfect</div><div class="v">' + sgn(evp, 2) + '</div><div class="sub">dealt cards, perfect plays</div></div>' +
       '<div class="stat"><div class="k">Luck</div><div class="v">' + sgn(act - ev, 1) + '</div><div class="sub">actual − your play</div></div>' +
       '<div class="stat"><div class="k">Misplays</div><div class="v">' + sgn(-mis, 2) + '</div><div class="sub">your play − perfect</div></div>' +
-      '<div class="stat"><div class="k">Bet sizing</div><div class="v">' + sgn(bc, 2) + '</div><div class="sub">vs the ramp, at your edge</div></div>' +
+      '<div class="stat"><div class="k">Theo · your bets</div><div class="v">' + sgn(tcY, 2) + '</div><div class="sub">your bet × edge at TC</div></div>' +
+      '<div class="stat"><div class="k">Theo · ramp bets</div><div class="v">' + sgn(tcR, 2) + '</div><div class="sub">ramp bet × edge at TC</div></div>' +
+      '<div class="stat"><div class="k">Bet sizing</div><div class="v">' + sgn(bc, 2) + '</div><div class="sub">your bets − ramp bets</div></div>' +
       '<div class="stat"><div class="k">Accuracy</div><div class="v">' + (plays ? Math.round(playsOk / plays * 100) + '%' : '—') + '</div><div class="sub">plays' + (betN ? ' · bets ' + Math.round(betOk / betN * 100) + '%' : '') + '</div></div>';
     var rows = log.slice().reverse().filter(function (h) {
       if (histFilter === 'miss') return h.betOk === false || h.plays.some(function (p) { return !p.ok; });
@@ -1615,108 +1670,149 @@
   })();
 
   // ---------- Net units chart ----------
-  var unitsPts = [];
-  function renderUnits() {
-    var host = document.getElementById('unitsChart'), sub = document.getElementById('unitsSub');
+  var SERIES = [
+    { key: 'act', name: 'Actual', short: 'Actual', color: 'var(--series-1)', dash: '', fmtd: 1 },
+    { key: 'you3', name: 'Theo · your play (dealt cards)', short: 'Your play', color: 'var(--series-2)', dash: '', fmtd: 2 },
+    { key: 'perf3', name: 'Theo · perfect play (dealt cards)', short: 'Perfect play', color: 'var(--series-3)', dash: '', fmtd: 2 },
+    { key: 'tcYou', name: 'Theo · your bets (true count)', short: 'Your bets (TC)', color: 'var(--series-4)', dash: '6 4', fmtd: 2 },
+    { key: 'tcRamp', name: 'Theo · ramp bets (true count)', short: 'Ramp bets (TC)', color: 'var(--series-5)', dash: '6 4', fmtd: 2 }
+  ];
+  var lineOn = { act: true, you3: true, perf3: true, tcYou: true, tcRamp: true };
+  try { Object.assign(lineOn, JSON.parse(localStorage.getItem('trainer-units-lines') || '{}')); } catch (e) {}
+  function fmtSigned(v, d) { var z = Math.round(v * Math.pow(10, d)) / Math.pow(10, d); return (z > 0 ? '+' : '') + z; }
+
+  function unitsData() {
     var hist = stats.history || [];
-    var data = [0].concat(hist);                       // start of session = 0
-    var n = data.length - 1;
-    sub.textContent = n ? 'over ' + n + (n === 1 ? ' hand' : ' hands') : '';
-    if (!document.getElementById('unitsCard').open) { unitsPts = []; return; }
-    if (n < 2) { host.innerHTML = '<div class="units-empty">Play a few hands to see your units over time.</div>'; unitsPts = []; return; }
-    function cumSeries(evh) {                         // per-hand EVs -> cumulative line anchored to the actual line
-      if (!evh || !evh.some(function (v) { return v !== null; })) return null;
+    var act = [0].concat(hist), n = act.length - 1;
+    function cum(evh) {                                // per-hand values -> cumulative line, anchored to Actual where it starts
+      if (!evh || !evh.some(function (v) { return v !== null && v !== undefined; })) return null;
       var out = new Array(n + 1).fill(null), off = n - evh.length, started = false, acc = 0;
       for (var k = 0; k < evh.length; k++) {
         var idx = off + k + 1;
-        if (idx < 1 || evh[k] === null) continue;
-        if (!started) { started = true; acc = data[idx - 1]; out[idx - 1] = acc; }
+        if (idx < 1 || evh[k] === null || evh[k] === undefined) continue;
+        if (!started) { started = true; acc = act[idx - 1]; out[idx - 1] = acc; }
         acc += evh[k]; out[idx] = Math.round(acc * 1000) / 1000;
       }
       return out;
     }
-    var exp = cumSeries(stats.evHistory), expP = cumSeries(stats.evpHistory);
-    document.getElementById('unitsLegend').innerHTML = exp ?
-      '<span><i style="background:var(--series-1)"></i>Actual</span><span><i style="background:var(--series-2)"></i>Theo · your play</span>' +
-      (expP ? '<span><i class="dash"></i>Theo · perfect</span>' : '') : '';
-    var W = host.clientWidth || 280, H = host.clientHeight || 140;
-    var padL = 30, padR = 44, padT = 10, padB = 18;
-    var all = data.concat((exp || []).filter(function (v) { return v !== null; }), (expP || []).filter(function (v) { return v !== null; }));
-    var lo = Math.min(0, Math.min.apply(null, all)), hi = Math.max(0, Math.max.apply(null, all));
+    return { n: n, vals: { act: act, you3: cum(stats.evHistory), perf3: cum(stats.evpHistory), tcYou: cum(stats.tcHistory), tcRamp: cum(stats.tcRampHistory) } };
+  }
+  function legendHTML(D, small) {
+    return SERIES.filter(function (sr) { return D.vals[sr.key]; }).map(function (sr) {
+      return '<button type="button" data-line="' + sr.key + '" aria-pressed="' + (lineOn[sr.key] ? 'true' : 'false') + '">' +
+        '<svg viewBox="0 0 16 6"><line x1="1" y1="3" x2="15" y2="3" stroke="' + sr.color + '" stroke-width="2.5" stroke-linecap="round"' + (sr.dash ? ' stroke-dasharray="4 3"' : '') + '/></svg>' +
+        esc(small ? sr.short : sr.name) + '</button>';
+    }).join('');
+  }
+  var chartState = {};                                  // per container: points for hover
+  function drawUnits(box) {
+    var host = box.querySelector('[data-chart]'), legend = box.querySelector('[data-legend]');
+    var D = unitsData(), n = D.n;
+    legend.innerHTML = n >= 2 ? legendHTML(D, box.id === 'unitsSmall') : '';
+    if (n < 2) { host.innerHTML = '<div class="units-empty">Play a few hands to see your units over time.</div>'; chartState[box.id] = null; return; }
+    var shown = SERIES.filter(function (sr) { return D.vals[sr.key] && lineOn[sr.key]; });
+    var W = host.clientWidth || 280, H = host.clientHeight || 150, big = box.id === 'unitsBig';
+    var padL = big ? 44 : 30, padR = big ? 64 : 46, padT = 10, padB = big ? 24 : 18;
+    var all = [0];
+    shown.forEach(function (sr) { D.vals[sr.key].forEach(function (v) { if (v !== null) all.push(v); }); });
+    var lo = Math.min.apply(null, all), hi = Math.max.apply(null, all);
     if (hi - lo < 4) { var mid = (hi + lo) / 2; lo = Math.min(lo, mid - 2); hi = Math.max(hi, mid + 2); }
     var x = function (i) { return padL + (W - padL - padR) * i / n; };
     var y = function (v) { return padT + (H - padT - padB) * (hi - v) / (hi - lo); };
-    unitsPts = data.map(function (v, i) {
-      return { i: i, v: v, x: x(i), y: y(v), e: exp ? exp[i] : null, ey: exp && exp[i] !== null ? y(exp[i]) : null,
-        p: expP ? expP[i] : null, py: expP && expP[i] !== null ? y(expP[i]) : null };
-    });
-    function pathOf(key, ykey) {
-      var out = '', pen = false;
-      unitsPts.forEach(function (p) { if (p[key] === null) { pen = false; return; } out += (pen ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p[ykey].toFixed(1); pen = true; });
-      return out;
+    var svg = '<svg class="plot" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">';
+    // recessive gridlines + labels (more in the expanded view)
+    var ticks = big ? 6 : 2, step = (hi - lo) / ticks;
+    for (var t = 0; t <= ticks; t++) {
+      var tv = hi - step * t, ty = y(tv);
+      if (big && Math.abs(ty - y(0)) > 12) svg += '<line class="grid" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + ty + '" y2="' + ty + '"/>';
+      if (Math.abs(ty - y(0)) > 14) svg += '<text class="ax" x="' + (padL - 6) + '" y="' + (ty + 3.5) + '" text-anchor="end">' + fmtSigned(tv, Math.abs(step) < 2 ? 1 : 0) + '</text>';
     }
-    var d2 = exp ? pathOf('e', 'ey') : '', d3 = expP ? pathOf('p', 'py') : '';
-    var d = unitsPts.map(function (p, i) { return (i ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1); }).join('');
-    var last = unitsPts[n];
-    var fmt = function (v) { v = Math.round(v * 10) / 10; return (v > 0 ? '+' : '') + v; };
-    var hiLbl = Math.round(hi * 10) / 10, loLbl = Math.round(lo * 10) / 10;
-    host.setAttribute('aria-label', 'Net units over ' + n + ' hands: now ' + fmt(last.v) + ', high ' + fmt(Math.max.apply(null, data)) + ', low ' + fmt(Math.min.apply(null, data)) + '.');
-    host.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
-      '<line class="zero" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(0) + '" y2="' + y(0) + '"/>' +
+    svg += '<line class="zero" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(0) + '" y2="' + y(0) + '"/>' +
       '<text class="ax" x="' + (padL - 6) + '" y="' + (y(0) + 3.5) + '" text-anchor="end">0</text>' +
-      (hiLbl !== 0 && y(0) - y(hi) > 16 ? '<text class="ax" x="' + (padL - 6) + '" y="' + (padT + 4) + '" text-anchor="end">' + fmt(hiLbl) + '</text>' : '') +
-      (loLbl !== 0 && y(lo) - y(0) > 16 ? '<text class="ax" x="' + (padL - 6) + '" y="' + (H - padB) + '" text-anchor="end">' + fmt(loLbl) + '</text>' : '') +
       '<text class="ax" x="' + padL + '" y="' + (H - 3) + '">hand 0</text>' +
-      '<text class="ax" x="' + (W - padR) + '" y="' + (H - 3) + '" text-anchor="end">' + n + '</text>' +
-      (d3 ? '<path class="ln3" d="' + d3 + '"/>' : '') +
-      (d2 ? '<path class="ln2" d="' + d2 + '"/>' : '') +
-      '<path class="ln" d="' + d + '"/>' +
-      (expP && last.p !== null ? '<circle class="end3" cx="' + last.x + '" cy="' + last.py + '" r="4"/>' : '') +
-      (exp && last.e !== null ? '<circle class="end2" cx="' + last.x + '" cy="' + last.ey + '" r="4"/>' : '') +
-      '<circle class="end" cx="' + last.x + '" cy="' + last.y + '" r="4"/>' +
-      endLabels(last, fmt) +
-      '<g id="unitsHover" style="display:none"><line class="hair" id="uhLine" y1="' + padT + '" y2="' + (H - padB) + '"/><circle class="hdot3" id="uhDot3" r="4" style="display:none"/><circle class="hdot2" id="uhDot2" r="4" style="display:none"/><circle class="hdot" id="uhDot" r="4"/></g>' +
-      '</svg>';
+      '<text class="ax" x="' + (W - padR) + '" y="' + (H - 3) + '" text-anchor="end">' + n + '</text>';
+    // lines: draw theoretical first so Actual sits on top
+    shown.slice().reverse().forEach(function (sr) {
+      var d = '', pen = false;
+      D.vals[sr.key].forEach(function (v, i) { if (v === null) { pen = false; return; } d += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1); pen = true; });
+      svg += '<path class="ln" d="' + d + '" stroke="' + sr.color + '"' + (sr.dash ? ' stroke-dasharray="' + sr.dash + '"' : '') + '/>';
+    });
+    // end dots + spaced direct labels (text in ink, never the series color)
+    var lbl = [];
+    shown.forEach(function (sr) {
+      var v = D.vals[sr.key][n]; if (v === null) return;
+      svg += '<circle class="end" cx="' + x(n) + '" cy="' + y(v) + '" r="4" fill="' + sr.color + '"/>';
+      lbl.push({ y: y(v), t: fmtSigned(v, sr.fmtd === 1 ? 1 : 1), ink: sr.key === 'act' ? 'var(--ink)' : 'var(--ink-soft)' });
+    });
+    lbl.sort(function (a, b) { return a.y - b.y; });
+    for (var i = 1; i < lbl.length; i++) if (lbl[i].y - lbl[i - 1].y < 13) lbl[i].y = lbl[i - 1].y + 13;
+    lbl.forEach(function (l) { svg += '<text class="endlbl" x="' + (x(n) + 8) + '" y="' + (l.y + 4) + '" fill="' + l.ink + '">' + l.t + '</text>'; });
+    svg += '<g class="hov" style="display:none"><line class="hair" y1="' + padT + '" y2="' + (H - padB) + '"/>' +
+      shown.map(function (sr) { return '<circle class="hdot" r="4" data-k="' + sr.key + '" fill="' + sr.color + '"/>'; }).join('') + '</g></svg>';
+    host.innerHTML = svg;
+    var vt = D.vals.act[n];
+    host.setAttribute('aria-label', 'Net units over ' + n + ' hands. ' + shown.map(function (sr) { return sr.name + ' ' + fmtSigned(D.vals[sr.key][n] || 0, 1); }).join('; ') + '.');
+    chartState[box.id] = { D: D, shown: shown, x: x, y: y, n: n };
   }
-  function endLabels(last, fmt) {
-    // direct labels at the line ends (text in ink tokens), spread apart so they never collide
-    var L = [{ y: last.y, t: fmt(last.v), ink: 'var(--ink)' }];
-    if (last.e !== null && last.e !== undefined) L.push({ y: last.ey, t: fmt(Math.round(last.e * 10) / 10), ink: 'var(--ink-soft)' });
-    if (last.p !== null && last.p !== undefined) L.push({ y: last.py, t: fmt(Math.round(last.p * 10) / 10), ink: 'var(--ink-faint)' });
-    L.sort(function (a, b) { return a.y - b.y; });
-    for (var i = 1; i < L.length; i++) if (L[i].y - L[i - 1].y < 13) L[i].y = L[i - 1].y + 13;
-    return L.map(function (l) { return '<text class="endlbl" x="' + (last.x + 8) + '" y="' + (l.y + 4) + '" style="fill:' + l.ink + '">' + l.t + '</text>'; }).join('');
+  function renderUnits() {
+    var D = unitsData(), n = D.n;
+    document.getElementById('unitsSub').textContent = n ? 'over ' + n + (n === 1 ? ' hand' : ' hands') : '';
+    document.querySelector('#unitsBig [data-sub]').textContent = n ? 'over ' + n + (n === 1 ? ' hand' : ' hands') : '';
+    if (document.getElementById('unitsCard').open) drawUnits(document.getElementById('unitsSmall'));
+    if (document.getElementById('unitsModal').classList.contains('on')) drawUnits(document.getElementById('unitsBig'));
   }
-  (function () {
-    var host = document.getElementById('unitsChart'), tip = document.getElementById('unitsTip');
-    function hide() { tip.classList.remove('on'); var g = document.getElementById('unitsHover'); if (g) g.style.display = 'none'; }
+  function wireChart(box) {
+    var host = box.querySelector('[data-chart]'), tip = box.querySelector('[data-tip]');
+    function hide() { tip.classList.remove('on'); var g = host.querySelector('.hov'); if (g) g.style.display = 'none'; }
     function show(e) {
-      if (unitsPts.length < 3) return hide();
+      var st = chartState[box.id]; if (!st) return hide();
       var r = host.getBoundingClientRect(), px = e.clientX - r.left;
-      var best = unitsPts[0];
-      unitsPts.forEach(function (p) { if (Math.abs(p.x - px) < Math.abs(best.x - px)) best = p; });
-      var g = document.getElementById('unitsHover'); g.style.display = '';
-      var ln = document.getElementById('uhLine'); ln.setAttribute('x1', best.x); ln.setAttribute('x2', best.x);
-      var dt = document.getElementById('uhDot'); dt.setAttribute('cx', best.x); dt.setAttribute('cy', best.y);
-      var v = Math.round(best.v * 10) / 10;
-      var d2 = document.getElementById('uhDot2');
-      if (best.e !== null && best.e !== undefined) { d2.style.display = ''; d2.setAttribute('cx', best.x); d2.setAttribute('cy', best.ey); }
-      else d2.style.display = 'none';
-      var d3 = document.getElementById('uhDot3');
-      if (best.p !== null && best.p !== undefined) { d3.style.display = ''; d3.setAttribute('cx', best.x); d3.setAttribute('cy', best.py); }
-      else d3.style.display = 'none';
-      var f2 = function (z) { z = Math.round(z * 100) / 100; return (z > 0 ? '+' : '') + z; };
-      tip.textContent = 'Hand ' + best.i + ' · actual ' + (v > 0 ? '+' : '') + v +
-        (best.e !== null && best.e !== undefined ? ' · your play ' + f2(best.e) : '') +
-        (best.p !== null && best.p !== undefined ? ' · perfect ' + f2(best.p) : '');
-      var card = host.parentElement.getBoundingClientRect();
-      tip.style.left = Math.min(Math.max(r.left - card.left + best.x, 60), card.width - 60) + 'px';
-      tip.style.top = (r.top - card.top + best.y - 10) + 'px';
+      var i = Math.max(0, Math.min(st.n, Math.round((px - st.x(0)) / (st.x(1) - st.x(0)))));
+      var g = host.querySelector('.hov'); if (!g) return;
+      g.style.display = '';
+      var hx = st.x(i);
+      g.querySelector('.hair').setAttribute('x1', hx); g.querySelector('.hair').setAttribute('x2', hx);
+      tip.innerHTML = '';
+      var head = document.createElement('div'); head.textContent = 'Hand ' + i; tip.appendChild(head);
+      st.shown.forEach(function (sr) {
+        var v = st.D.vals[sr.key][i], dot = g.querySelector('[data-k="' + sr.key + '"]');
+        if (v === null) { dot.style.display = 'none'; return; }
+        dot.style.display = ''; dot.setAttribute('cx', hx); dot.setAttribute('cy', st.y(v));
+        var row = document.createElement('div'); row.className = 'row';
+        var sw = document.createElement('i'); sw.style.background = sr.color; row.appendChild(sw);
+        var nm = document.createElement('span'); nm.textContent = sr.name.replace('Theo · ', ''); row.appendChild(nm);
+        var vb = document.createElement('b'); vb.textContent = fmtSigned(v, 2); row.appendChild(vb);
+        tip.appendChild(row);
+      });
+      var br = box.getBoundingClientRect();
       tip.classList.add('on');
+      var tw = tip.offsetWidth, left = r.left - br.left + hx;
+      tip.style.left = Math.min(Math.max(left, tw / 2 + 4), br.width - tw / 2 - 4) + 'px';
+      tip.style.top = (r.top - br.top + 14) + 'px';
+      tip.style.transform = 'translate(-50%, 0)';
     }
     host.addEventListener('pointermove', show);
     host.addEventListener('pointerdown', show);
     host.addEventListener('pointerleave', hide);
+    box.querySelector('[data-legend]').addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-line]'); if (!b) return;
+      var k = b.getAttribute('data-line');
+      lineOn[k] = !lineOn[k];
+      if (!SERIES.some(function (sr) { return lineOn[sr.key]; })) lineOn[k] = true;   // keep at least one line
+      try { localStorage.setItem('trainer-units-lines', JSON.stringify(lineOn)); } catch (err) {}
+      renderUnits();
+    });
+  }
+  (function () {
+    wireChart(document.getElementById('unitsSmall'));
+    wireChart(document.getElementById('unitsBig'));
+    var modal = document.getElementById('unitsModal');
+    function openBig() { modal.classList.add('on'); renderUnits(); document.getElementById('unitsClose').focus(); }
+    function closeBig() { modal.classList.remove('on'); document.getElementById('unitsExpand').focus(); }
+    document.getElementById('unitsExpand').addEventListener('click', openBig);
+    document.getElementById('unitsClose').addEventListener('click', closeBig);
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeBig(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.classList.contains('on')) { e.stopPropagation(); closeBig(); } }, true);
     var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(renderUnits, 120); });
     var uc = document.getElementById('unitsCard');
     try { if (localStorage.getItem('trainer-units-open') === '1') uc.open = true; } catch (e) {}
