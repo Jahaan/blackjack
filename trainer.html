@@ -750,6 +750,26 @@
   if ((stats.handLog || []).some(function (h) { return h.v !== 2; })) {
     stats.handLog = []; stats.evHistory = []; stats.evpHistory = []; stats.ev = 0; stats.evp = 0;
   }
+  // Backfill the true-count theoreticals from the hand history for hands logged before those lines existed.
+  (function backfillTC() {
+    var log = stats.handLog || [], hist = stats.history || [];
+    if (!log.length || log.length > hist.length) return;
+    var edge = function (tc) { return -0.0055 + 0.005 * tc; };
+    var r4 = function (x) { return Math.round(x * 10000) / 10000; };
+    log.forEach(function (h) {
+      if (h.tcYou === undefined || h.tcRamp === undefined) {
+        var e = edge(h.tc);
+        h.tcYou = r4(h.bet * e);
+        h.tcRamp = r4((h.ramp != null ? h.ramp : h.bet) * e);
+        h.betCost = Math.round((h.tcYou - h.tcRamp) * 1000) / 1000;
+      }
+    });
+    // the log holds the most recent hands, in order, so it lines up with the end of the units history
+    var pad = hist.length - log.length;
+    var mk = function (key) { return new Array(pad).fill(null).concat(log.map(function (h) { return h[key]; })); };
+    stats.tcHistory = mk('tcYou');
+    stats.tcRampHistory = mk('tcRamp');
+  })();
   // bet sizing is no longer logged as a mistake: drop any old entries
   stats.mistakes = (stats.mistakes || []).filter(function (m) { return !/^Bet at TC/.test(m.ctx); });
   if (stats.leaks) delete stats.leaks['Bet sizing'];
