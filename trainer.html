@@ -772,7 +772,7 @@
     <div class="units-chart sim-chart" data-chart role="img" aria-label="Simulated net units"></div>
     <div class="units-tip" data-tip role="status"></div>
     <div class="tc-stats sim-stats" id="simStats"></div>
-    <div class="note">Plays basic strategy perfectly (plus the Illustrious 18 / Fab 4 index plays when "Grade count deviations" is on) and always bets the ramp for your spread, using your current table settings. It runs on its own shoe and never touches your stats, history or current game. Expected = ramp bet × edge at the true count (measured from 600M simulated hands of basic strategy: about −0.52% at TC 0, rising ~0.55% per TC); it leaves out index plays and insurance, so with those on the simulated line usually runs above it. The shaded bands show where results land about 68% and 95% of the time around expected.</div>
+    <div class="note">Plays basic strategy perfectly (plus the Illustrious 18 / Fab 4 index plays when "Grade count deviations" is on) and always bets the ramp for your spread, using your current table settings. It runs on its own shoe and never touches your stats, history or current game. Expected = ramp bet × edge at the true count (measured from 600M simulated hands of basic strategy: about −0.52% at TC 0, rising ~0.55% per TC); with index plays on it uses a separate table measured with the Illustrious 18 / Fab 4 and insurance at +3. The shaded bands show where results land about 68% and 95% of the time around expected.</div>
   </div>
 </div>
 
@@ -808,16 +808,21 @@
   // hands: average result per unit bet at each half true count. Interpolated between points; beyond +9 it rises ~0.5%/TC.
   var EDGE_TC = [-9.155,-7.489,-6.994,-6.485,-5.983,-5.488,-4.989,-4.486,-3.985,-3.495,-2.996,-2.487,-1.986,-1.487,-0.993,-0.5,-0.001,0.497,0.991,1.486,1.984,2.486,2.984,3.481,3.984,4.486,4.989,5.488,5.983,6.485,6.994,7.489,7.984,8.481,8.989];
   var EDGE_V = [-0.06895,-0.05454,-0.05028,-0.04661,-0.04304,-0.03926,-0.0355,-0.03273,-0.02898,-0.0255,-0.0223,-0.01935,-0.01655,-0.0136,-0.01075,-0.00777,-0.00518,-0.00198,0.00083,0.00337,0.00622,0.00959,0.0117,0.01378,0.01758,0.01939,0.02167,0.02364,0.02557,0.0279,0.03187,0.03265,0.03551,0.03971,0.0385];
-  function edgeAt(tc) {
-    var n = EDGE_TC.length;
-    if (tc <= EDGE_TC[0]) return EDGE_V[0];
-    if (tc >= EDGE_TC[n - 1]) return EDGE_V[n - 1] + 0.005 * Math.min(6, tc - EDGE_TC[n - 1]);
-    for (var i = 1; i < n; i++) if (tc <= EDGE_TC[i]) {
-      var f = (tc - EDGE_TC[i - 1]) / (EDGE_TC[i] - EDGE_TC[i - 1]);
-      return EDGE_V[i - 1] + f * (EDGE_V[i] - EDGE_V[i - 1]);
+  // Same measurement with the Illustrious 18 / Fab 4 index plays and insurance at TC +3 (6D, 80% pen, heads-up, 600M hands).
+  var EDGE_TC_DEV = [-9.413,-7.486,-6.991,-6.483,-5.994,-5.489,-4.984,-4.492,-3.986,-3.497,-2.997,-2.486,-1.991,-1.487,-0.989,-0.501,-0.002,0.5,0.987,1.485,1.99,2.485,2.984,3.482,3.985,4.492,4.984,5.489,5.994,6.483,6.991,7.486,7.988,8.486,8.971,9.478,9.964];
+  var EDGE_V_DEV = [-0.06226,-0.04839,-0.04504,-0.04053,-0.03922,-0.03538,-0.03338,-0.02991,-0.02705,-0.02363,-0.02102,-0.01809,-0.0157,-0.01339,-0.01043,-0.00789,-0.00515,-0.00176,0.00118,0.00417,0.007,0.00986,0.0134,0.01641,0.0193,0.02249,0.02553,0.02925,0.03363,0.03543,0.04126,0.04301,0.04819,0.05167,0.05589,0.05822,0.06026];
+  function interpEdge(T, V, tc) {
+    var n = T.length;
+    if (tc <= T[0]) return V[0];
+    if (tc >= T[n - 1]) return V[n - 1] + 0.005 * Math.min(6, tc - T[n - 1]);
+    for (var i = 1; i < n; i++) if (tc <= T[i]) {
+      var f = (tc - T[i - 1]) / (T[i] - T[i - 1]);
+      return V[i - 1] + f * (V[i] - V[i - 1]);
     }
-    return EDGE_V[n - 1];
+    return V[n - 1];
   }
+  // devs = playing the index plays (and insurance at +3); otherwise basic strategy.
+  function edgeAt(tc, devs) { return devs ? interpEdge(EDGE_TC_DEV, EDGE_V_DEV, tc) : interpEdge(EDGE_TC, EDGE_V, tc); }
 
   // ---------- Cards ----------
   var SUITS = ['♠', '♥', '♦', '♣'];
@@ -898,21 +903,24 @@
       stats[pr[0]] = arr;
     });
   })();
-  // Edge model v3 (measured table): recompute every stored count-based figure from the saved TC / bet / ramp.
-  if (stats.edgeModel !== 3) {
+  // Edge model v4 (measured tables, basic / index plays): recompute every stored count-based figure from the saved TC / bet / ramp.
+  if (stats.edgeModel !== 4) {
     (function () {
       var r4 = function (x) { return Math.round(x * 10000) / 10000; };
       (stats.handLog || []).forEach(function (h) {
         if (h.tc == null) return;
-        var e = edgeAt(h.tc);
+        var e = edgeAt(h.tc, !!h.devs);
         h.tcYou = r4(h.bet * e); h.tcRamp = r4((h.ramp != null ? h.ramp : h.bet) * e);
         h.betCost = Math.round((h.tcYou - h.tcRamp) * 1000) / 1000;
       });
       var tcs = stats.tcSeries || [], bs = stats.betSeries || [], rs = stats.rampSeries || [];
-      if (stats.tcHistory) stats.tcHistory = stats.tcHistory.map(function (v, i) { return tcs[i] != null && bs[i] != null ? r4(bs[i] * edgeAt(tcs[i])) : v; });
-      if (stats.tcRampHistory) stats.tcRampHistory = stats.tcRampHistory.map(function (v, i) { return tcs[i] != null && (rs[i] != null || bs[i] != null) ? r4((rs[i] != null ? rs[i] : bs[i]) * edgeAt(tcs[i])) : v; });
+      // hands still in the log know whether index plays were on; older chart-only hands use basic strategy
+      var hl = stats.handLog || [], off = (stats.history || []).length - hl.length;
+      var devAt = function (i) { var h = hl[i - off]; return !!(h && h.devs); };
+      if (stats.tcHistory) stats.tcHistory = stats.tcHistory.map(function (v, i) { return tcs[i] != null && bs[i] != null ? r4(bs[i] * edgeAt(tcs[i], devAt(i))) : v; });
+      if (stats.tcRampHistory) stats.tcRampHistory = stats.tcRampHistory.map(function (v, i) { return tcs[i] != null && (rs[i] != null || bs[i] != null) ? r4((rs[i] != null ? rs[i] : bs[i]) * edgeAt(tcs[i], devAt(i))) : v; });
     })();
-    stats.edgeModel = 3;
+    stats.edgeModel = 4;
   }
   // bet sizing is no longer logged as a mistake: drop any old entries
   stats.mistakes = (stats.mistakes || []).filter(function (m) { return !/^Bet at TC/.test(m.ctx); });
@@ -1347,7 +1355,7 @@
     await bettingPhase();
     var tc0 = trueCount(), me0 = mySeat();
     curLog = { n: stats.hands + 1, shoe: stats.shoes, tc: Math.round(tc0 * 10) / 10, rc: rc, bet: me0.hands[0].bet,
-      ramp: settings.betting ? rampBet(Math.floor(tc0)) : null, betOk: lastBetOk, plays: [], netBefore: stats.net };
+      ramp: settings.betting ? rampBet(Math.floor(tc0)) : null, betOk: lastBetOk, plays: [], netBefore: stats.net, devs: !!settings.devs };
     await step(0.6);
 
     // Deal two rounds
@@ -1470,7 +1478,7 @@
     stats.history.push(Math.round(stats.net * 10) / 10);
     if (curLog) {
       var cs = function (cards) { return cards.map(function (c) { return c.r; }).join(' '); };
-      var edge = edgeAt(curLog.tc);
+      var edge = edgeAt(curLog.tc, curLog.devs);
       var cost = curLog.plays.reduce(function (a, pl) { return a + (pl.cost || 0); }, 0);
       var ev3 = curLog.ev3 !== undefined ? curLog.ev3 : edge;
       var evp = curLog.bet * ev3;                                         // these 3 cards, perfect play
@@ -1488,7 +1496,7 @@
         actual: Math.round((stats.net - curLog.netBefore) * 100) / 100, ev: Math.round(ev * 1000) / 1000,
         evp: Math.round(evp * 1000) / 1000, cost: Math.round(cost * 1000) / 1000,
         ev3: Math.round(ev3 * 1000) / 1000, betCost: Math.round(betCost * 1000) / 1000, v: 2,
-        tcYou: Math.round(tcYou * 10000) / 10000, tcRamp: Math.round(tcRamp * 10000) / 10000
+        tcYou: Math.round(tcYou * 10000) / 10000, tcRamp: Math.round(tcRamp * 10000) / 10000, devs: curLog.devs
       };
       stats.handLog = stats.handLog || [];
       stats.handLog.push(rec);
@@ -2010,7 +2018,7 @@
         });
       }
       res.n++; res.net += amt; res.sumSq += amt * amt;
-      var e = bet * edgeAt(tc); res.exp += e;
+      var e = bet * edgeAt(tc, cfg.devs); res.exp += e;
       if (tc >= 3) res.at3++;
       res.peak = Math.max(res.peak, res.net);
       res.maxDD = Math.max(res.maxDD, res.peak - res.net);
@@ -2134,7 +2142,7 @@
     // what the ramp would expect per 100 hands at the counts you actually saw
     var bs = stats.betSeries || [], rs = stats.rampSeries || [], on = 0, over = 0, under = 0, bn = 0;
     bs.forEach(function (b, k) { if (b == null || rs[k] == null) return; bn++; if (b === rs[k]) on++; else if (b > rs[k]) over++; else under++; });
-    var rampEV = 0; tcs.forEach(function (tc) { rampEV += Math.max(1, Math.min(settings.spread, Math.floor(tc) - 1)) * edgeAt(tc); });
+    var rampEV = 0; tcs.forEach(function (tc) { rampEV += Math.max(1, Math.min(settings.spread, Math.floor(tc) - 1)) * edgeAt(tc, settings.devs); });
     return {
       n: n, avg: avg, max: Math.max.apply(null, tcs), min: Math.min.apply(null, tcs), shoes: Object.keys(shoes).length,
       atOrBelow1: cnt(function (v) { return v < 2; }) / n, at2: cnt(function (v) { return v >= 2; }) / n,

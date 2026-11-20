@@ -38,7 +38,7 @@ A self-contained blackjack expected-value dashboard (single static `index.html`,
     misplays and bet sizing (vs the ramp, at your edge for that count) are shown separately.
   - Your bet resets to 1 unit at the start of every new shoe.
   - A **True count** chart shows the TC at each bet (shoe boundaries marked, break-even line at +1) above a bet panel (your bet as gray bars vs the ramp bet as a dark line), plus a **Bets by true count** bubble scatter (bubble size = hands, blue on the ramp, orange off, ramp as a staircase) with how often you saw +2/+3/+5 and what the ramp should earn at those counts.
-  - Expected values use an edge-by-true-count table measured from 600M simulated hands (≈ −0.52% at TC 0, rising ~0.55–0.6% per TC).
+  - Expected values use edge-by-true-count tables measured from 600M simulated hands each: basic strategy (≈ −0.52% at TC 0, rising ~0.55% per TC) and with index plays + insurance (much steeper at high counts, e.g. +3.4% vs +2.6% at TC +6). The trainer picks the one matching your "Grade count deviations" setting.
   - **Simulate perfect play** runs 1,000–1,000,000 hands with perfect basic strategy (plus index plays if enabled) and ramp
     betting on your current table settings, and charts simulated net units against expected with ±1σ/±2σ bands. It uses
     its own shoe and never touches your stats.
