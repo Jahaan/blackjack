@@ -457,7 +457,8 @@
   .cat-row .track i { display: block; height: 100%; background: var(--win); border-radius: 999px; }
   .cat-row .pct { text-align: right; font-family: var(--mono); font-size: 11.5px; color: var(--ink-soft); }
 
-  .list { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
+  .list { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; max-height: 360px; overflow-y: auto; }
+  .list-count { font-size: 11.5px; color: var(--ink-faint); margin-bottom: 2px; }
   .list .item { display: flex; justify-content: space-between; gap: 8px; padding: 7px 9px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--line); }
   .list .item .l { font-weight: 600; }
   .list .item .r { color: var(--ink-soft); text-align: right; font-size: 12px; }
@@ -734,7 +735,26 @@
   // ---------- Storage (per-viewer convenience) ----------
   var KEY = 'count-trainer-v1';
   function load() { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return null; } }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify({ settings: settings, stats: stats })); } catch (e) {} }
+  var CHART_KEYS = ['history', 'evHistory', 'evpHistory', 'tcHistory', 'tcRampHistory'];
+  function thinOldest() {
+    // keep the newest half of the chart at full detail, every other point in the older half
+    var n = (stats.history || []).length; if (n < 200) return false;
+    var cut = Math.floor(n / 2);
+    CHART_KEYS.forEach(function (k) {
+      var a = stats[k]; if (!a || !a.length) return;
+      var off = n - a.length, keep = [];
+      for (var i = 0; i < a.length; i++) { var gi = off + i; if (gi >= cut || gi % 2 === 0) keep.push(a[i]); }
+      stats[k] = keep;
+    });
+    stats.chartThinned = (stats.chartThinned || 0) + 1;
+    return true;
+  }
+  function save() {
+    for (var tries = 0; tries < 6; tries++) {
+      try { localStorage.setItem(KEY, JSON.stringify({ settings: settings, stats: stats })); return; }
+      catch (e) { if (!thinOldest()) return; }
+    }
+  }
 
   var DEFAULT_SETTINGS = { decks: 6, pen: 0.75, bots: 2, seat: 'middle', speed: 'normal', auto: true, quiz: '4-7', quizType: 'rc', devs: false, show: false, buttons: false, hideTotals: false, betting: true, spread: 8 };
   function freshStats() {
@@ -764,11 +784,16 @@
         h.betCost = Math.round((h.tcYou - h.tcRamp) * 1000) / 1000;
       }
     });
-    // the log holds the most recent hands, in order, so it lines up with the end of the units history
+    // the log holds the most recent hands, in order, so it lines up with the end of the units history;
+    // only fill gaps so TC data older than the 1,000-hand log is never lost
     var pad = hist.length - log.length;
-    var mk = function (key) { return new Array(pad).fill(null).concat(log.map(function (h) { return h[key]; })); };
-    stats.tcHistory = mk('tcYou');
-    stats.tcRampHistory = mk('tcRamp');
+    [['tcHistory', 'tcYou'], ['tcRampHistory', 'tcRamp']].forEach(function (pr) {
+      var arr = stats[pr[0]] || [];
+      while (arr.length < hist.length) arr.unshift(null);
+      if (arr.length > hist.length) arr = arr.slice(-hist.length);
+      log.forEach(function (h, i) { var idx = pad + i; if (arr[idx] === null || arr[idx] === undefined) arr[idx] = h[pr[1]]; });
+      stats[pr[0]] = arr;
+    });
   })();
   // bet sizing is no longer logged as a mistake: drop any old entries
   stats.mistakes = (stats.mistakes || []).filter(function (m) { return !/^Bet at TC/.test(m.ctx); });
@@ -956,6 +981,9 @@
     if (curLog) curLog.plays.push({ ctx: kind === 'ins' ? 'Insurance' : ctxLabel(cards, u), you: chosen, right: correct.action, ok: ok, dev: !!correct.dev,
       cost: Math.round(misplayCost(kind, cards, u, chosen, correct.action) * 1000) / 1000 });
     stats.decisions++;
+    var spot = kind === 'ins' ? 'Insurance vs A' : ctxLabel(cards, u);
+    stats.seen = stats.seen || {};
+    stats.seen[spot] = (stats.seen[spot] || 0) + 1;
     var cat = kind === 'ins' ? 'ins' : (correct.dev ? 'dev' : correct.cat);
     stats.cats[cat][1]++;
     if (ok) { stats.correct++; stats.cats[cat][0]++; stats.streak++; stats.best = Math.max(stats.best, stats.streak); }
@@ -963,7 +991,6 @@
       stats.streak = 0;
       var ctx = kind === 'ins' ? 'Insurance vs A' : ctxLabel(cards, u);
       stats.mistakes.unshift({ ctx: ctx, you: ACT_NAME[chosen], right: ACT_NAME[correct.action], dev: !!correct.dev });
-      stats.mistakes = stats.mistakes.slice(0, 30);
       stats.leaks[ctx] = (stats.leaks[ctx] || 0) + 1;
     }
     var tcStr = fmtTC(trueCount());
@@ -1324,7 +1351,6 @@
     stats.hands++;
     stats.history = stats.history || [];
     stats.history.push(Math.round(stats.net * 10) / 10);
-    if (stats.history.length > 2000) stats.history = stats.history.slice(-2000);
     if (curLog) {
       var cs = function (cards) { return cards.map(function (c) { return c.r; }).join(' '); };
       var edge = edgeAt(curLog.tc);
@@ -1752,11 +1778,19 @@
       '<text class="ax" x="' + padL + '" y="' + (H - 3) + '">hand 0</text>' +
       '<text class="ax" x="' + (W - padR) + '" y="' + (H - 3) + '" text-anchor="end">' + n + '</text>';
     // lines: draw theoretical first so Actual sits on top
+    var stride = Math.max(1, Math.floor(n / ((W - padL - padR) * 1.5)));   // ~1.5 points per pixel is plenty
     shown.slice().reverse().forEach(function (sr) {
-      var d = '', pen = false;
-      D.vals[sr.key].forEach(function (v, i) { if (v === null) { pen = false; return; } d += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1); pen = true; });
+      var d = '', pen = false, vals = D.vals[sr.key];
+      for (var i = 0; i <= n; i++) {
+        var v = vals[i];
+        if (v === null) { pen = false; continue; }
+        var edge = i === n || vals[i + 1] === null || i === 0 || vals[i - 1] === null;
+        if (i % stride && !edge) continue;
+        d += (pen ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1); pen = true;
+      }
       svg += '<path class="ln" d="' + d + '" stroke="' + sr.color + '"' + (sr.dash ? ' stroke-dasharray="' + sr.dash + '"' : '') + '/>';
     });
+    if (stats.chartThinned) svg += '<text class="ax" x="' + padL + '" y="' + (padT + 8) + '">older hands thinned to save space</text>';
     // end dots + spaced direct labels (text in ink, never the series color)
     var lbl = [];
     shown.forEach(function (sr) {
@@ -1869,13 +1903,19 @@
   function renderReview() {
     var el = document.getElementById('reviewList'), h = '';
     if (reviewTab === 'mist') {
-      h = stats.mistakes.slice(0, 10).map(function (m) {
+      if (stats.mistakes.length) h = '<div class="list-count">' + stats.mistakes.length + ' mistake' + (stats.mistakes.length === 1 ? '' : 's') + ', newest first</div>';
+      h += stats.mistakes.map(function (m) {
         return '<div class="item"><span class="l">' + esc(m.ctx) + '</span><span class="r">' + esc(m.you) + ' → <b>' + esc(m.right) + '</b>' + (m.dev ? ' ·idx' : '') + '</span></div>';
       }).join('') || '<div class="empty">No mistakes yet. Keep it that way.</div>';
     } else if (reviewTab === 'leaks') {
-      var arr = Object.keys(stats.leaks).map(function (k) { return [k, stats.leaks[k]]; }).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 8);
-      h = arr.map(function (x) { return '<div class="item"><span class="l">' + esc(x[0]) + '</span><span class="r">' + x[1] + '× missed</span></div>'; }).join('') ||
-        '<div class="empty">Spots you miss repeatedly will show up here.</div>';
+      var seen = stats.seen || {};
+      var arr = Object.keys(stats.leaks).map(function (k) { return [k, stats.leaks[k], seen[k] || 0]; })
+        .sort(function (a, b) { return b[1] - a[1] || (b[2] ? b[1] / b[2] : 0) - (a[2] ? a[1] / a[2] : 0); });
+      if (arr.length) h = '<div class="list-count">' + arr.length + ' spot' + (arr.length === 1 ? '' : 's') + ' missed at least once</div>';
+      h += arr.map(function (x) {
+        var rate = x[2] >= x[1] && x[2] > 0 ? ' of ' + x[2] + ' (' + Math.round(x[1] / x[2] * 100) + '%)' : '×';
+        return '<div class="item"><span class="l">' + esc(x[0]) + '</span><span class="r">missed ' + x[1] + rate + '</span></div>';
+      }).join('') || '<div class="empty">Spots you miss repeatedly will show up here.</div>';
     } else {
       h = stats.quizLog.slice(0, 10).map(function (q) {
         var sg = function (x) { return (x > 0 ? '+' : '') + x; };

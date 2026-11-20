@@ -37,6 +37,8 @@ A self-contained blackjack expected-value dashboard (single static `index.html`,
     and **theoretical with perfect play**, both from the value of the 3 dealt cards (your two + dealer upcard). Actual − your play = luck of the draw;
     misplays and bet sizing (vs the ramp, at your edge for that count) are shown separately.
   - Your bet resets to 1 unit at the start of every new shoe.
+  - Keeps every chart point and every mistake/leak (with how often each spot came up); the hand history keeps the last 1,000 hands.
+    If browser storage ever fills, the oldest chart points are thinned rather than losing a save.
   - Tracks accuracy by hand type, recent mistakes, repeat leaks and a quiz log (saved in your browser's localStorage).
 - `vercel.json` — static hosting config (clean URLs, no-cache revalidate).
 
