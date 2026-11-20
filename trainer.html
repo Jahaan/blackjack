@@ -545,6 +545,22 @@
   .cheat td.a { font-weight: 700; white-space: nowrap; }
   .cheat td.w { font-family: var(--mono); white-space: nowrap; text-align: right; }
   .cheat td.n { color: var(--ink-faint); font-size: 11px; }
+  .cheat-status { flex: 1; }
+  .cheat-rules { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; }
+  .cheat-rules .tabs { margin: 0; flex: 1 1 160px; }
+  .cheat-rules-sum { color: var(--ink-faint); }
+  .cheat-modal .box { width: min(1180px, 100%); }
+  .cheat-modal .head span { font-size: 13px; }
+  .cheat-big { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 6px 26px; align-items: start; }
+  .cheat-big .cheat-group { break-inside: avoid; }
+  .cheat-big h4 { margin: 14px 0 6px; font-size: 12px; }
+  .cheat-big table { font-size: 16px; }
+  .cheat-big td { padding: 7px 8px; }
+  .cheat-big td.h { font-size: 18px; }
+  .cheat-big td.n { font-size: 13px; }
+  .cheat-big td.a { font-size: 16px; }
+  .cheat-big td.w { font-size: 16px; }
+  @media (max-width: 560px) { .cheat-big table { font-size: 15px; } .cheat-big td.h { font-size: 16px; } }
   .list-count { font-size: 11.5px; color: var(--ink-faint); margin-bottom: 2px; }
   .list .item { display: flex; justify-content: space-between; gap: 8px; padding: 7px 9px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--line); }
   .list .item .l { font-weight: 600; }
@@ -763,7 +779,8 @@
       <details class="card review" id="cheatCard">
         <summary class="pad">Index plays <span>cheat sheet</span></summary>
         <div class="review-body">
-          <div class="cheat-status" id="cheatStatus"></div>
+          <div class="units-tools"><div class="cheat-status" id="cheatStatus"></div><button type="button" class="units-expand" id="cheatExpand" aria-label="Expand cheat sheet">Expand ⤢</button></div>
+          <div class="cheat-rules"><span class="tabs"><button type="button" data-cheat-rule="ls" data-v="1">Surrender</button><button type="button" data-cheat-rule="ls" data-v="0">No surrender</button></span><span class="tabs"><button type="button" data-cheat-rule="h17" data-v="1">H17</button><button type="button" data-cheat-rule="h17" data-v="0">S17</button></span></div>
           <div class="cheat" id="cheatSheet"></div>
           <div class="hint">TC is the exact true count at the moment you decide. "≥" means at or above; "&lt;" means below. Hard totals only; pairs you'd normally split keep basic strategy.</div>
         </div>
@@ -811,6 +828,15 @@
         <div class="hint"><button class="link-btn" id="resetBtn" type="button">Reset all stats</button></div>
       </div>
     </aside>
+  </div>
+</div>
+
+<div class="units-modal cheat-modal" id="cheatModal" role="dialog" aria-modal="true" aria-labelledby="cheatTitle">
+  <div class="box">
+    <div class="head"><h2 id="cheatTitle">Index plays cheat sheet</h2><span id="cheatBigStatus"></span><button type="button" class="units-expand" id="cheatClose">Close ✕</button></div>
+    <div class="cheat-rules"><span class="tabs"><button type="button" data-cheat-rule="ls" data-v="1">Surrender</button><button type="button" data-cheat-rule="ls" data-v="0">No surrender</button></span><span class="tabs"><button type="button" data-cheat-rule="h17" data-v="1">H17</button><button type="button" data-cheat-rule="h17" data-v="0">S17</button></span></div>
+    <div class="cheat cheat-big" id="cheatBig"></div>
+    <div class="note">TC is the exact true count at the moment you decide. "≥" means at or above; "&lt;" means below. Hard totals only; pairs you'd normally split keep basic strategy. Esc closes.</div>
   </div>
 </div>
 
@@ -1119,38 +1145,73 @@
     { t: 14, u: 10, idx: 3, dir: 'ge', act: 'R' },
     { t: 15, u: 9, idx: 2, dir: 'ge', act: 'R' },
     { t: 15, u: 10, idx: 0, dir: 'lt', act: 'H', onlyR: true },
+    { t: 15, u: 11, idx: -1, dir: 'lt', act: 'H', onlyR: true },
     { pair: 10, u: 5, idx: 5, dir: 'ge', act: 'P' },
     { pair: 10, u: 6, idx: 4, dir: 'ge', act: 'P' }
   ];
-  // Cheat sheet, generated from DEVS so it always matches grading
+  // Cheat sheet. Rules toggles (surrender, H17) pick the right Illustrious 18 / Fab 4 indices.
+  // With H17 + surrender (the game's rules) the list is exactly what's graded (DEVS).
+  var cheatRules = { ls: true, h17: true };
+  try { Object.assign(cheatRules, JSON.parse(localStorage.getItem('trainer-cheat-rules') || '{}')); } catch (e) {}
+  function cheatList(ls, h17) {
+    var L = [];
+    var add = function (o) { L.push(o); };
+    var nr = ls ? 'only when surrender isn\'t available' : '';
+    add({ g: 'S', t: 16, u: 10, idx: 0, dir: 'ge', act: 'S', note: nr });
+    add({ g: 'S', t: 15, u: 10, idx: 4, dir: 'ge', act: 'S', note: nr });
+    add({ g: 'S', t: 16, u: 9, idx: 5, dir: 'ge', act: 'S', note: ls ? nr : '' });
+    add({ g: 'S', t: 12, u: 2, idx: 3, dir: 'ge', act: 'S' });
+    add({ g: 'S', t: 12, u: 3, idx: 2, dir: 'ge', act: 'S' });
+    add({ g: 'H', t: 12, u: 4, idx: 0, dir: 'lt', act: 'H' });
+    add({ g: 'H', t: 12, u: 5, idx: -2, dir: 'lt', act: 'H' });
+    add({ g: 'H', t: 12, u: 6, idx: -1, dir: 'lt', act: 'H' });
+    add({ g: 'H', t: 13, u: 2, idx: -1, dir: 'lt', act: 'H' });
+    add({ g: 'H', t: 13, u: 3, idx: -2, dir: 'lt', act: 'H' });
+    add({ g: 'D', t: 10, u: 10, idx: 4, dir: 'ge', act: 'D' });
+    add({ g: 'D', t: 10, u: 11, idx: h17 ? 3 : 4, dir: 'ge', act: 'D' });
+    if (!h17) add({ g: 'D', t: 11, u: 11, idx: 1, dir: 'ge', act: 'D' });
+    add({ g: 'D', t: 9, u: 2, idx: 1, dir: 'ge', act: 'D' });
+    add({ g: 'D', t: 9, u: 7, idx: 3, dir: 'ge', act: 'D' });
+    add({ g: 'P', pair: 10, u: 5, idx: 5, dir: 'ge', act: 'P' });
+    add({ g: 'P', pair: 10, u: 6, idx: 4, dir: 'ge', act: 'P' });
+    if (ls) {
+      add({ g: 'R', t: 14, u: 10, idx: 3, dir: 'ge', act: 'R' });
+      add({ g: 'R', t: 15, u: 9, idx: 2, dir: 'ge', act: 'R' });
+      add({ g: 'R', t: 15, u: 10, idx: 0, dir: 'lt', act: 'H', note: 'instead of surrendering' });
+      if (h17) add({ g: 'R', t: 15, u: 11, idx: -1, dir: 'lt', act: 'H', note: 'instead of surrendering' });
+      else add({ g: 'R', t: 15, u: 11, idx: 1, dir: 'ge', act: 'R' });
+    }
+    return L;
+  }
   function renderCheat() {
-    var groups = [
-      ['Stand instead of hit', function (d) { return d.act === 'S'; }],
-      ['Hit instead of stand', function (d) { return d.act === 'H' && !d.onlyR; }],
-      ['Double', function (d) { return d.act === 'D'; }],
-      ['Split tens', function (d) { return d.act === 'P'; }],
-      ['Surrender (first two cards)', function (d) { return d.act === 'R' || d.onlyR; }]
-    ];
+    var ls = cheatRules.ls, h17 = cheatRules.h17;
+    var groups = [['S', 'Stand instead of hit'], ['H', 'Hit instead of stand'], ['D', 'Double'], ['P', 'Split tens'], ['R', 'Surrender (first two cards)']];
     var AN = { S: 'Stand', H: 'Hit', D: 'Double', P: 'Split', R: 'Surrender' };
     var row = function (hand, up, act, when, note) {
       return '<tr><td class="h">' + hand + '</td><td class="n">vs ' + up + '</td><td class="a">' + act + '</td><td class="w">' + when + '</td></tr>' +
         (note ? '<tr><td></td><td colspan="3" class="n">' + note + '</td></tr>' : '');
     };
-    var html = '';
+    var list = cheatList(ls, h17), html = '';
     groups.forEach(function (g) {
-      var rows = DEVS.filter(g[1]);
+      var rows = list.filter(function (d) { return d.g === g[0]; });
       if (!rows.length) return;
-      html += '<h4>' + g[0] + '</h4><table>' + rows.map(function (d) {
+      html += '<div class="cheat-group"><h4>' + g[1] + '</h4><table>' + rows.map(function (d) {
         var when = 'TC ' + (d.dir === 'ge' ? '≥ ' : '< ') + (d.idx > 0 ? '+' : d.idx < 0 ? '−' : '') + Math.abs(d.idx);
-        var note = d.noR ? 'only when surrender isn\'t available' : d.onlyR ? 'instead of surrendering' : '';
-        return row(d.pair ? '10,10' : d.t, upLabel(d.u), AN[d.act], when, note);
-      }).join('') + '</table>';
+        return row(d.pair ? '10,10' : d.t, upLabel(d.u), AN[d.act], when, d.note || '');
+      }).join('') + '</table></div>';
     });
-    html += '<h4>Insurance</h4><table>' + row('—', 'A', 'Take insurance', 'TC ≥ +3', 'decline below +3') + '</table>';
-    document.getElementById('cheatSheet').innerHTML = html;
-    document.getElementById('cheatStatus').innerHTML = settings.devs
-      ? '<b>Grading is on</b> for these plays (Grade count deviations).'
-      : 'Grading is <b>off</b>: you\'re graded on basic strategy only. Turn on <b>Grade count deviations</b> in settings to be graded on these.';
+    html += '<div class="cheat-group"><h4>Insurance</h4><table>' + row('—', 'A', 'Take insurance', 'TC ≥ +3', 'decline below +3') + '</table></div>';
+    var matches = ls && h17;
+    var rules = (h17 ? 'H17' : 'S17') + ' · ' + (ls ? 'late surrender' : 'no surrender') + ' · ' + list.length + ' index plays + insurance';
+    var status = (matches
+      ? (settings.devs ? '<b>Your game\'s rules · graded.</b> ' : '<b>Your game\'s rules</b> · grading is off (turn on Grade count deviations). ')
+      : '<b>Reference only</b>: your game uses H17 with late surrender. ') + '<span class="cheat-rules-sum">' + rules + '</span>';
+    ['cheatSheet', 'cheatBig'].forEach(function (id) { document.getElementById(id).innerHTML = html; });
+    ['cheatStatus', 'cheatBigStatus'].forEach(function (id) { document.getElementById(id).innerHTML = status; });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-cheat-rule]'), function (el) {
+      var k = el.getAttribute('data-cheat-rule'), v = el.getAttribute('data-v') === '1';
+      el.classList.toggle('on', cheatRules[k] === v); el.setAttribute('aria-pressed', String(cheatRules[k] === v));
+    });
   }
   function devPlay(cards, u, legal, tc) {
     var tt = total(cards);
@@ -2747,6 +2808,21 @@
     el.innerHTML = h;
   }
   renderCheat();
+  (function () {
+    var m = document.getElementById('cheatModal');
+    function openC() { renderCheat(); m.classList.add('on'); document.getElementById('cheatClose').focus(); }
+    function closeC() { m.classList.remove('on'); document.getElementById('cheatExpand').focus(); }
+    document.getElementById('cheatExpand').addEventListener('click', openC);
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-cheat-rule]'); if (!b) return;
+      cheatRules[b.getAttribute('data-cheat-rule')] = b.getAttribute('data-v') === '1';
+      try { localStorage.setItem('trainer-cheat-rules', JSON.stringify(cheatRules)); } catch (err) {}
+      renderCheat();
+    });
+    document.getElementById('cheatClose').addEventListener('click', closeC);
+    m.addEventListener('click', function (e) { if (e.target === m) closeC(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && m.classList.contains('on')) { e.stopPropagation(); closeC(); } }, true);
+  })();
   (function () {
     var cc = document.getElementById('cheatCard');
     try { if (localStorage.getItem('trainer-cheat-open') === '1') cc.open = true; } catch (e) {}
