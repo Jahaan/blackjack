@@ -382,15 +382,15 @@
 
   /* Units history chart */
   .units-card, .units-modal {
-    --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100; --series-5: #e87ba4;
+    --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100; --series-5: #e87ba4; --series-6: #008300; --series-7: #6250d6;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) .units-card, :root:not([data-theme="light"]) .units-modal {
-      --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; --series-5: #d55181;
+      --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; --series-5: #d55181; --series-6: #0ca30c; --series-7: #9085e9;
     }
   }
   :root[data-theme="dark"] .units-card, :root[data-theme="dark"] .units-modal {
-    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; --series-5: #d55181;
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500; --series-5: #d55181; --series-6: #0ca30c; --series-7: #9085e9;
   }
   .units-body { position: relative; }
   .units-card summary span { font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink-faint); margin-left: 4px; }
@@ -911,7 +911,7 @@
     <div class="units-tools"><div class="units-legend" data-legend></div></div>
     <div class="units-chart" data-chart role="img" aria-label="Net units over hands"></div>
     <div class="units-tip" data-tip role="status"></div>
-    <div class="note">Solid lines use the cards you were dealt (theoretical value of your two cards vs the dealer's upcard). Dashed lines use only the true count when you bet (your edge at that count, measured by simulation). Click a legend item to show or hide a line. Esc closes.</div>
+    <div class="note">Solid lines use the cards you were dealt (theoretical value of your two cards vs the dealer's upcard). Dashed lines use only the true count when you bet, with the basic-strategy edge at that count. Dash-dot lines also use the true count: <b>your play + your bets</b> = your bet × the edge for how you're graded (index-play table when deviations grading is on) minus what your misplays cost; <b>perfect play + perfect bets</b> = the ramp's bet × the edge with index plays and insurance. Edges are measured by simulation. Click a legend item to show or hide a line. Esc closes.</div>
   </div>
 </div>
 
@@ -957,7 +957,7 @@
   // ---------- Storage (per-viewer convenience) ----------
   var KEY = 'count-trainer-v1';
   function load() { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return null; } }
-  var CHART_KEYS = ['history', 'evHistory', 'evpHistory', 'tcHistory', 'tcRampHistory', 'tcSeries', 'shoeSeries', 'betSeries', 'rampSeries'];
+  var CHART_KEYS = ['history', 'evHistory', 'evpHistory', 'tcHistory', 'tcRampHistory', 'tcSeries', 'shoeSeries', 'betSeries', 'rampSeries', 'tcPlayHistory', 'tcPerfHistory'];
   function thinOldest() {
     // keep the newest half of the chart at full detail, every other point in the older half
     var n = (stats.history || []).length; if (n < 200) return false;
@@ -982,7 +982,7 @@
   function freshStats() {
     return { hands: 0, decisions: 0, correct: 0, cats: { hard: [0, 0], soft: [0, 0], pair: [0, 0], ins: [0, 0], dev: [0, 0], bet: [0, 0] },
       quizzes: 0, quizCorrect: 0, quizErr: 0, rcQ: 0, rcCorrect: 0, tcQ: 0, tcCorrect: 0, net: 0, streak: 0, best: 0, shoes: 1,
-      mistakes: [], leaks: {}, quizLog: [], history: [], evHistory: [], evpHistory: [], tcHistory: [], tcRampHistory: [], tcSeries: [], shoeSeries: [], betSeries: [], rampSeries: [], handLog: [], ev: 0, evp: 0 };
+      mistakes: [], leaks: {}, quizLog: [], history: [], evHistory: [], evpHistory: [], tcHistory: [], tcRampHistory: [], tcSeries: [], shoeSeries: [], betSeries: [], rampSeries: [], tcPlayHistory: [], tcPerfHistory: [], handLog: [], ev: 0, evp: 0 };
   }
   var saved = load() || {};
   var settings = Object.assign({}, DEFAULT_SETTINGS, saved.settings || {});
@@ -1010,7 +1010,7 @@
     // only fill gaps so TC data older than the 1,000-hand log is never lost
     var pad = hist.length - log.length;
     log.forEach(function (h) { if (h.rampOrBet === undefined) h.rampOrBet = h.ramp != null ? h.ramp : h.bet; });
-    [['tcHistory', 'tcYou'], ['tcRampHistory', 'tcRamp'], ['tcSeries', 'tc'], ['shoeSeries', 'shoe'], ['betSeries', 'bet'], ['rampSeries', 'rampOrBet']].forEach(function (pr) {
+    [['tcHistory', 'tcYou'], ['tcRampHistory', 'tcRamp'], ['tcSeries', 'tc'], ['shoeSeries', 'shoe'], ['betSeries', 'bet'], ['rampSeries', 'rampOrBet'], ['tcPlayHistory', 'tcPlay'], ['tcPerfHistory', 'tcPerf']].forEach(function (pr) {
       var arr = stats[pr[0]] || [];
       while (arr.length < hist.length) arr.unshift(null);
       if (arr.length > hist.length) arr = arr.slice(-hist.length);
@@ -1019,23 +1019,34 @@
     });
   })();
   // Edge model v4 (measured tables, basic / index plays): recompute every stored count-based figure from the saved TC / bet / ramp.
-  if (stats.edgeModel !== 4) {
+  if (stats.edgeModel !== 5) {
     (function () {
       var r4 = function (x) { return Math.round(x * 10000) / 10000; };
       (stats.handLog || []).forEach(function (h) {
         if (h.tc == null) return;
-        var e = edgeAt(h.tc, !!h.devs);
-        h.tcYou = r4(h.bet * e); h.tcRamp = r4((h.ramp != null ? h.ramp : h.bet) * e);
+        var e = edgeAt(h.tc, false), rb = h.ramp != null ? h.ramp : h.bet;
+        h.tcYou = r4(h.bet * e); h.tcRamp = r4(rb * e);
         h.betCost = Math.round((h.tcYou - h.tcRamp) * 1000) / 1000;
+        h.tcPlay = r4(h.bet * edgeAt(h.tc, !!h.devs) - (h.cost || 0));
+        h.tcPerf = r4(rb * edgeAt(h.tc, true));
       });
       var tcs = stats.tcSeries || [], bs = stats.betSeries || [], rs = stats.rampSeries || [];
       // hands still in the log know whether index plays were on; older chart-only hands use basic strategy
       var hl = stats.handLog || [], off = (stats.history || []).length - hl.length;
-      var devAt = function (i) { var h = hl[i - off]; return !!(h && h.devs); };
-      if (stats.tcHistory) stats.tcHistory = stats.tcHistory.map(function (v, i) { return tcs[i] != null && bs[i] != null ? r4(bs[i] * edgeAt(tcs[i], devAt(i))) : v; });
-      if (stats.tcRampHistory) stats.tcRampHistory = stats.tcRampHistory.map(function (v, i) { return tcs[i] != null && (rs[i] != null || bs[i] != null) ? r4((rs[i] != null ? rs[i] : bs[i]) * edgeAt(tcs[i], devAt(i))) : v; });
+      var logAt = function (i) { return hl[i - off]; };
+      var nH = (stats.history || []).length;
+      var fit = function (a) { a = a || []; while (a.length < nH) a.unshift(null); return a.length > nH ? a.slice(-nH) : a; };
+      var rb = function (i) { return rs[i] != null ? rs[i] : bs[i]; };
+      stats.tcHistory = fit(stats.tcHistory).map(function (v, i) { return tcs[i] != null && bs[i] != null ? r4(bs[i] * edgeAt(tcs[i], false)) : v; });
+      stats.tcRampHistory = fit(stats.tcRampHistory).map(function (v, i) { return tcs[i] != null && rb(i) != null ? r4(rb(i) * edgeAt(tcs[i], false)) : v; });
+      // hands still in the log know their misplay cost and whether index plays were graded; older hands: basic, no cost known
+      stats.tcPlayHistory = fit(stats.tcPlayHistory).map(function (v, i) {
+        if (tcs[i] == null || bs[i] == null) return v;
+        var h = logAt(i); return r4(bs[i] * edgeAt(tcs[i], !!(h && h.devs)) - ((h && h.cost) || 0));
+      });
+      stats.tcPerfHistory = fit(stats.tcPerfHistory).map(function (v, i) { return tcs[i] != null && rb(i) != null ? r4(rb(i) * edgeAt(tcs[i], true)) : v; });
     })();
-    stats.edgeModel = 4;
+    stats.edgeModel = 5;
   }
   // bet sizing is no longer logged as a mistake: drop any old entries
   stats.mistakes = (stats.mistakes || []).filter(function (m) { return !/^Bet at TC/.test(m.ctx); });
@@ -1658,7 +1669,7 @@
     stats.history.push(Math.round(stats.net * 10) / 10);
     if (curLog) {
       var cs = function (cards) { return cards.map(function (c) { return c.r; }).join(' '); };
-      var edge = edgeAt(curLog.tc, curLog.devs);
+      var edge = edgeAt(curLog.tc, false);                                 // basic-strategy edge at the true count
       var cost = curLog.plays.reduce(function (a, pl) { return a + (pl.cost || 0); }, 0);
       var ev3 = curLog.ev3 !== undefined ? curLog.ev3 : edge;
       var evp = curLog.bet * ev3;                                         // these 3 cards, perfect play
@@ -1666,6 +1677,9 @@
       var tcYou = curLog.bet * edge;                                       // your bet x edge at the true count
       var tcRamp = (curLog.ramp != null ? curLog.ramp : curLog.bet) * edge; // ramp bet x edge at the true count
       var betCost = tcYou - tcRamp;                                        // >0 helped, <0 hurt
+      var rampOrBet = curLog.ramp != null ? curLog.ramp : curLog.bet;
+      var tcPlay = curLog.bet * edgeAt(curLog.tc, curLog.devs) - cost;     // your bets, your play (graded baseline − misplays)
+      var tcPerf = rampOrBet * edgeAt(curLog.tc, true);                    // ramp bets, perfect play incl. index plays
       stats.ev = (stats.ev || 0) + ev;
       stats.evp = (stats.evp || 0) + evp;
       var rec = {
@@ -1676,7 +1690,8 @@
         actual: Math.round((stats.net - curLog.netBefore) * 100) / 100, ev: Math.round(ev * 1000) / 1000,
         evp: Math.round(evp * 1000) / 1000, cost: Math.round(cost * 1000) / 1000,
         ev3: Math.round(ev3 * 1000) / 1000, betCost: Math.round(betCost * 1000) / 1000, v: 2,
-        tcYou: Math.round(tcYou * 10000) / 10000, tcRamp: Math.round(tcRamp * 10000) / 10000, devs: curLog.devs
+        tcYou: Math.round(tcYou * 10000) / 10000, tcRamp: Math.round(tcRamp * 10000) / 10000, devs: curLog.devs,
+        tcPlay: Math.round(tcPlay * 10000) / 10000, tcPerf: Math.round(tcPerf * 10000) / 10000
       };
       stats.handLog = stats.handLog || [];
       stats.handLog.push(rec);
@@ -1694,10 +1709,10 @@
         arr.push(pr[1]);
         if (arr.length > stats.history.length) stats[pr[0]] = arr.slice(-stats.history.length);
       });
-      ['tcHistory', 'tcRampHistory'].forEach(function (key, j) {
-        var arr = stats[key] = stats[key] || [];
+      [['tcHistory', tcYou], ['tcRampHistory', tcRamp], ['tcPlayHistory', tcPlay], ['tcPerfHistory', tcPerf]].forEach(function (pr) {
+        var key = pr[0], arr = stats[key] = stats[key] || [];
         while (arr.length < stats.history.length - 1) arr.unshift(null);
-        arr.push(Math.round((j ? tcRamp : tcYou) * 10000) / 10000);
+        arr.push(Math.round(pr[1] * 10000) / 10000);
         if (arr.length > stats.history.length) stats[key] = arr.slice(-stats.history.length);
       });
       if (stats.evpHistory.length > stats.history.length) stats.evpHistory = stats.evpHistory.slice(-stats.history.length);
@@ -1966,10 +1981,10 @@
   function renderHistory() {
     var card = document.getElementById('histCard');
     var log = stats.handLog || [];
-    var act = 0, ev = 0, evp = 0, mis = 0, bc = 0, tcY = 0, tcR = 0, n = log.length, betN = 0, betOk = 0, plays = 0, playsOk = 0;
+    var act = 0, ev = 0, evp = 0, mis = 0, bc = 0, tcY = 0, tcR = 0, tcP = 0, tcF = 0, n = log.length, betN = 0, betOk = 0, plays = 0, playsOk = 0;
     log.forEach(function (h) {
       act += h.actual; ev += h.ev; evp += (h.evp !== undefined ? h.evp : h.ev); mis += (h.cost || 0); bc += (h.betCost || 0);
-      tcY += (h.tcYou || 0); tcR += (h.tcRamp || 0);
+      tcY += (h.tcYou || 0); tcR += (h.tcRamp || 0); tcP += (h.tcPlay || 0); tcF += (h.tcPerf || 0);
       if (h.betOk !== null && h.betOk !== undefined) { betN++; if (h.betOk) betOk++; }
       h.plays.forEach(function (p) { plays++; if (p.ok) playsOk++; });
     });
@@ -1981,8 +1996,10 @@
       '<div class="stat"><div class="k">Theo · perfect</div><div class="v">' + sgn(evp, 2) + '</div><div class="sub">dealt cards, perfect plays</div></div>' +
       '<div class="stat"><div class="k">Luck</div><div class="v">' + sgn(act - ev, 1) + '</div><div class="sub">actual − your play</div></div>' +
       '<div class="stat"><div class="k">Misplays</div><div class="v">' + sgn(-mis, 2) + '</div><div class="sub">your play − perfect</div></div>' +
-      '<div class="stat"><div class="k">Theo · your bets</div><div class="v">' + sgn(tcY, 2) + '</div><div class="sub">your bet × edge at TC</div></div>' +
-      '<div class="stat"><div class="k">Theo · ramp bets</div><div class="v">' + sgn(tcR, 2) + '</div><div class="sub">ramp bet × edge at TC</div></div>' +
+      '<div class="stat"><div class="k">Theo · your bets</div><div class="v">' + sgn(tcY, 2) + '</div><div class="sub">your bet × basic edge at TC</div></div>' +
+      '<div class="stat"><div class="k">Theo · ramp bets</div><div class="v">' + sgn(tcR, 2) + '</div><div class="sub">ramp bet × basic edge at TC</div></div>' +
+      '<div class="stat"><div class="k">Theo · your play + bets</div><div class="v">' + sgn(tcP, 2) + '</div><div class="sub">your bet × edge − misplays</div></div>' +
+      '<div class="stat"><div class="k">Theo · perfect play + bets</div><div class="v">' + sgn(tcF, 2) + '</div><div class="sub">ramp × edge with index plays</div></div>' +
       '<div class="stat"><div class="k">Bet sizing</div><div class="v">' + sgn(bc, 2) + '</div><div class="sub">your bets − ramp bets</div></div>' +
       '<div class="stat"><div class="k">Accuracy</div><div class="v">' + (plays ? Math.round(playsOk / plays * 100) + '%' : '—') + '</div><div class="sub">plays' + (betN ? ' · bets ' + Math.round(betOk / betN * 100) + '%' : '') + '</div></div>';
     var rows = log.slice().reverse().filter(function (h) {
@@ -2032,10 +2049,12 @@
     { key: 'act', name: 'Actual', short: 'Actual', color: 'var(--series-1)', dash: '', fmtd: 1 },
     { key: 'you3', name: 'Theo · your play (dealt cards)', short: 'Your play', color: 'var(--series-2)', dash: '', fmtd: 2 },
     { key: 'perf3', name: 'Theo · perfect play (dealt cards)', short: 'Perfect play', color: 'var(--series-3)', dash: '', fmtd: 2 },
-    { key: 'tcYou', name: 'Theo · your bets (true count)', short: 'Your bets (TC)', color: 'var(--series-4)', dash: '6 4', fmtd: 2 },
-    { key: 'tcRamp', name: 'Theo · ramp bets (true count)', short: 'Ramp bets (TC)', color: 'var(--series-5)', dash: '6 4', fmtd: 2 }
+    { key: 'tcYou', name: 'Theo · your bets, basic strategy (true count)', short: 'Your bets · basic (TC)', color: 'var(--series-4)', dash: '6 4', fmtd: 2 },
+    { key: 'tcRamp', name: 'Theo · ramp bets, basic strategy (true count)', short: 'Ramp bets · basic (TC)', color: 'var(--series-5)', dash: '6 4', fmtd: 2 },
+    { key: 'tcPlay', name: 'Theo · your play + your bets (true count)', short: 'Your play + bets (TC)', color: 'var(--series-6)', dash: '9 3 2 3', fmtd: 2 },
+    { key: 'tcPerf', name: 'Theo · perfect play + perfect bets (true count)', short: 'Perfect play + bets (TC)', color: 'var(--series-7)', dash: '9 3 2 3', fmtd: 2 }
   ];
-  var lineOn = { act: true, you3: true, perf3: true, tcYou: true, tcRamp: true };
+  var lineOn = { act: true, you3: true, perf3: true, tcYou: true, tcRamp: true, tcPlay: true, tcPerf: true };
   try { Object.assign(lineOn, JSON.parse(localStorage.getItem('trainer-units-lines') || '{}')); } catch (e) {}
   function fmtSigned(v, d) { var z = Math.round(v * Math.pow(10, d)) / Math.pow(10, d); return (z > 0 ? '+' : '') + z; }
 
@@ -2053,7 +2072,7 @@
       }
       return out;
     }
-    return { n: n, vals: { act: act, you3: cum(stats.evHistory), perf3: cum(stats.evpHistory), tcYou: cum(stats.tcHistory), tcRamp: cum(stats.tcRampHistory) } };
+    return { n: n, vals: { act: act, you3: cum(stats.evHistory), perf3: cum(stats.evpHistory), tcYou: cum(stats.tcHistory), tcRamp: cum(stats.tcRampHistory), tcPlay: cum(stats.tcPlayHistory), tcPerf: cum(stats.tcPerfHistory) } };
   }
   function legendHTML(D, small) {
     return SERIES.filter(function (sr) { return D.vals[sr.key]; }).map(function (sr) {

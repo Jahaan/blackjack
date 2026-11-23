@@ -29,8 +29,8 @@ A self-contained blackjack expected-value dashboard (single static `index.html`,
   - A Start screen appears before the first hand and again whenever the shoe is reshuffled.
   - Grades every decision against basic strategy for these rules, with an option to grade Illustrious 18 / Fab 4 index plays.
   - Quizzes you on the running count every few hands (switchable to true count or both in settings; estimate decks left from the discard tray for true count).
-  - A **Net units** chart plots five cumulative lines: actual; theoretical from the dealt cards with your play and with
-    perfect play; and theoretical from the true count alone with your bets and with the ramp's bets. Toggle lines from
+  - A **Net units** chart plots seven cumulative lines: actual; theoretical from the dealt cards with your play and with
+    perfect play; basic-strategy theoretical from the true count with your bets and with the ramp's bets; and true-count theoretical for your play + your bets and for perfect play (index plays) + perfect bets. Toggle lines from
     the legend; **Expand** opens a large view (Esc closes).
   - **Hand history** logs every hand (TC, bet vs ramp, cards, plays, result) with three figures: **actual**, **theoretical
     with your play** (your bet × the 3-card value, minus each misplay's EV cost from a built-in infinite-deck calculator),
