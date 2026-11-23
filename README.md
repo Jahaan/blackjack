@@ -44,6 +44,7 @@ A self-contained blackjack expected-value dashboard (single static `index.html`,
   - **Simulate perfect play** runs 1,000–1,000,000 hands with perfect basic strategy (plus index plays if enabled) and ramp
     betting on your current table settings, and charts simulated net units against expected with ±1σ/±2σ bands. It uses
     its own shoe and never touches your stats.
+  - An **Accuracy trend** chart shows rolling accuracy (last 20 / 50 / 100) for plays, bets and count quizzes against hand number, with lifetime figures; plays and bets are backfilled from the hand history.
   - Keeps every chart point and every mistake/leak (with how often each spot came up); the hand history keeps the last 1,000 hands.
     If browser storage ever fills, the oldest chart points are thinned rather than losing a save.
   - Tracks accuracy by hand type, recent mistakes, repeat leaks and a quiz log (saved in your browser's localStorage).
