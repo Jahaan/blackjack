@@ -425,9 +425,16 @@
   .units-tip .row { display: flex; align-items: center; gap: 6px; }
   .units-tip .row i { width: 10px; height: 3px; border-radius: 2px; flex: none; }
   .units-tip .row b { margin-left: auto; padding-left: 10px; }
+  .v-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .graph-btn {
+    flex: none; width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--line-strong); background: var(--panel);
+    color: var(--accent-ink); display: grid; place-items: center; cursor: pointer; padding: 0;
+  }
+  .graph-btn svg { width: 16px; height: 16px; }
+  .graph-btn:hover { border-color: var(--accent); }
+  .graph-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .acc-win { flex: 1; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
   .acc-win .tabs { margin: 0; width: 150px; }
-  #accSmall .units-chart { height: 170px; }
   .tc-key { flex: 1; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--ink-soft); padding-top: 4px; }
   .tc-key i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
   .tc-key .k-tc { background: var(--series-1); }
@@ -749,8 +756,8 @@
       <div class="card pad">
         <div class="sect-label">Session</div>
         <div class="stat-grid">
-          <div class="stat"><div class="k">Strategy</div><div class="v" id="sAcc">—</div><div class="sub" id="sAccSub">0 decisions</div></div>
-          <div class="stat"><div class="k">Count quiz</div><div class="v" id="sQuiz">—</div><div class="sub" id="sQuizSub">0 quizzes</div></div>
+          <div class="stat"><div class="k">Strategy</div><div class="v-row"><div class="v" id="sAcc">—</div><button type="button" class="graph-btn" data-accopen aria-label="Show accuracy trend"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 13h12M3 10l3-3 3 2 4-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><div class="sub" id="sAccSub">0 decisions</div></div>
+          <div class="stat"><div class="k">Count quiz</div><div class="v-row"><div class="v" id="sQuiz">—</div><button type="button" class="graph-btn" data-accopen aria-label="Show accuracy trend"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 13h12M3 10l3-3 3 2 4-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><div class="sub" id="sQuizSub">0 quizzes</div></div>
           <div class="stat"><div class="k">Hands</div><div class="v" id="sHands">0</div><div class="sub" id="sStreak">Streak 0</div></div>
           <div class="stat"><div class="k">Net units</div><div class="v" id="sNet">0</div><div class="sub" id="sShoe">Shoe 1</div></div>
         </div>
@@ -776,16 +783,6 @@
           <div class="sc-head"><b>Bets by true count</b><span class="tc-key"><span><i class="k-on"></i>On the ramp</span><span><i class="k-off"></i>Off the ramp</span><span><i class="k-ramp"></i>Ramp</span></span></div>
           <div class="units-chart sc-chart" data-scatter role="img" aria-label="Bets by true count"></div>
           <div class="units-tip" data-stip role="status"></div>
-        </div>
-      </details>
-
-      <details class="card review units-card" id="accCard">
-        <summary class="pad">Accuracy trend <span id="accSub"></span></summary>
-        <div class="review-body units-body" id="accSmall">
-          <div class="units-tools"><div class="acc-win">Rolling <span class="tabs" data-accwin><button type="button" data-w="20">20</button><button type="button" data-w="50">50</button><button type="button" data-w="100">100</button></span></div><button type="button" class="units-expand" id="accExpand" aria-label="Expand accuracy chart">Expand ⤢</button></div>
-          <div class="units-legend acc-legend" data-legend></div>
-          <div class="units-chart" data-chart role="img" aria-label="Rolling accuracy"></div>
-          <div class="units-tip" data-tip role="status"></div>
         </div>
       </details>
 
@@ -1088,6 +1085,19 @@
     stats.acc.play = seedP.concat(stats.acc.play || []);
     stats.acc.bet = seedB.concat(stats.acc.bet || []);
     stats.accSeeded = true;
+  }
+  if (!stats.accQuizSeeded) {
+    stats.acc = stats.acc || { play: [], bet: [], quiz: [] };
+    var have = (stats.acc.quiz || []).length;
+    var older = (stats.quizLog || []).slice(have);       // quizLog is newest-first; skip answers already recorded
+    if (older.length) {
+      var every = Math.max(1, Math.round((stats.hands || 1) / Math.max(1, stats.quizzes || 1)));
+      var firstH = have ? (stats.acc.quiz[0] >> 1) : (stats.hands || older.length * every);
+      var seed = older.map(function (q, k) { return Math.max(1, firstH - every * (k + 1)) * 2 + (q.ok ? 1 : 0); }).reverse();
+      stats.acc.quiz = seed.concat(stats.acc.quiz || []);
+      stats.accQuizEst = seed.length;
+    }
+    stats.accQuizSeeded = true;
   }
   // bet sizing is no longer logged as a mistake: drop any old entries
   stats.mistakes = (stats.mistakes || []).filter(function (m) { return !/^Bet at TC/.test(m.ctx); });
@@ -2535,6 +2545,36 @@
     }
     return out;
   }
+  // centred moving average (half-width k) over the rolling values: removes the 1/N step jumps without lagging
+  function accSmooth(pts, k) {
+    var out = [], n = pts.length;
+    for (var i = 0; i < n; i++) {
+      var a = Math.max(0, i - k), b = Math.min(n - 1, i + k), s2 = 0;
+      for (var j = a; j <= b; j++) s2 += pts[j].v;
+      out.push({ h: pts[i].h, v: s2 / (b - a + 1), raw: pts[i].v });
+    }
+    return out;
+  }
+  // monotone cubic (Fritsch–Carlson) path through points: smooth, never overshoots
+  function smoothPath(P) {
+    var n = P.length; if (n < 2) return '';
+    if (n === 2) return 'M' + P[0][0].toFixed(1) + ' ' + P[0][1].toFixed(1) + 'L' + P[1][0].toFixed(1) + ' ' + P[1][1].toFixed(1);
+    var dx = [], dy = [], m = [], t = [];
+    for (var i = 0; i < n - 1; i++) { dx[i] = P[i + 1][0] - P[i][0] || 1e-6; dy[i] = P[i + 1][1] - P[i][1]; m[i] = dy[i] / dx[i]; }
+    t[0] = m[0]; t[n - 1] = m[n - 2];
+    for (i = 1; i < n - 1; i++) t[i] = m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2;
+    for (i = 0; i < n - 1; i++) {
+      if (m[i] === 0) { t[i] = 0; t[i + 1] = 0; continue; }
+      var a = t[i] / m[i], b = t[i + 1] / m[i], h = a * a + b * b;
+      if (h > 9) { var s3 = 3 / Math.sqrt(h); t[i] = s3 * a * m[i]; t[i + 1] = s3 * b * m[i]; }
+    }
+    var d = 'M' + P[0][0].toFixed(1) + ' ' + P[0][1].toFixed(1);
+    for (i = 0; i < n - 1; i++) {
+      var c1x = P[i][0] + dx[i] / 3, c1y = P[i][1] + t[i] * dx[i] / 3, c2x = P[i + 1][0] - dx[i] / 3, c2y = P[i + 1][1] - t[i + 1] * dx[i] / 3;
+      d += 'C' + c1x.toFixed(1) + ' ' + c1y.toFixed(1) + ' ' + c2x.toFixed(1) + ' ' + c2y.toFixed(1) + ' ' + P[i + 1][0].toFixed(1) + ' ' + P[i + 1][1].toFixed(1);
+    }
+    return d;
+  }
   function drawAcc(box) {
     var host = box.querySelector('[data-chart]'), legend = box.querySelector('[data-legend]');
     var A = stats.acc || {}, N = accWin, big = box.id === 'accBig';
@@ -2542,10 +2582,10 @@
     var series = ACC.map(function (sr) {
       var arr = A[sr.key] || [];
       var tot = arr.length, right = 0; for (var i = 0; i < tot; i++) right += arr[i] & 1;
-      return { sr: sr, pts: accRolling(arr, N), n: tot, life: tot ? right / tot : null };
+      return { sr: sr, pts: accSmooth(accRolling(arr, N), Math.max(2, Math.round(N / 4))), n: tot, life: tot ? right / tot : null };
     });
     legend.innerHTML = series.map(function (S) {
-      var last = S.pts.length ? Math.round(S.pts[S.pts.length - 1].v * 100) + '%' : (S.n ? S.n + '/' + N : '—');
+      var last = S.pts.length ? Math.round(S.pts[S.pts.length - 1].raw * 100) + '%' : (S.n ? S.n + '/' + N : '—');
       return '<button type="button" data-accline="' + S.sr.key + '" aria-pressed="' + (accOn[S.sr.key] ? 'true' : 'false') + '">' +
         '<svg viewBox="0 0 16 6"><line x1="1" y1="3" x2="15" y2="3" stroke="' + S.sr.color + '" stroke-width="2.5" stroke-linecap="round"' + (S.sr.dash ? ' stroke-dasharray="' + (S.sr.dash === '2 3' ? '2 2' : '4 3') + '"' : '') + '/></svg>' +
         S.sr.name + ' <b>' + last + '</b></button>';
@@ -2572,12 +2612,13 @@
     svg += '<text class="ax" x="' + padL + '" y="' + (H - 3) + '">hand ' + h0 + '</text><text class="ax" x="' + (W - padR) + '" y="' + (H - 3) + '" text-anchor="end">' + h1 + '</text>';
     var lbl = [];
     shown.slice().reverse().forEach(function (S) {
-      var stride = Math.max(1, Math.floor(S.pts.length / ((W - padL - padR) * 1.5))), d = '';
-      S.pts.forEach(function (p, i) { if (i % stride && i !== S.pts.length - 1) return; d += (d ? 'L' : 'M') + x(p.h).toFixed(1) + ' ' + y(p.v).toFixed(1); });
+      var stride = Math.max(1, Math.floor(S.pts.length / ((W - padL - padR) / 3))), P = [];
+      S.pts.forEach(function (p, i) { if (i % stride && i !== S.pts.length - 1) return; var px = x(p.h); if (P.length && Math.abs(px - P[P.length - 1][0]) < 0.5) P[P.length - 1] = [px, y(p.v)]; else P.push([px, y(p.v)]); });
+      var d = smoothPath(P);
       svg += '<path class="ln" d="' + d + '" stroke="' + S.sr.color + '"' + (S.sr.dash ? ' stroke-dasharray="' + S.sr.dash + '"' : '') + '/>';
       var L = S.pts[S.pts.length - 1];
       svg += '<circle class="end" cx="' + x(L.h) + '" cy="' + y(L.v) + '" r="4" fill="' + S.sr.color + '"/>';
-      lbl.push({ y: y(L.v), x: x(L.h), t: Math.round(L.v * 100) + '%' });
+      lbl.push({ y: y(L.v), x: x(L.h), t: Math.round(L.raw * 100) + '%' });
     });
     lbl.sort(function (a, b) { return a.y - b.y; });
     for (var i = 1; i < lbl.length; i++) if (lbl[i].y - lbl[i - 1].y < 13) lbl[i].y = lbl[i - 1].y + 13;
@@ -2591,14 +2632,12 @@
   function renderAcc() {
     var A = stats.acc || {};
     var parts = ACC.map(function (sr) { var a = A[sr.key] || []; if (!a.length) return null; var r = 0; a.forEach(function (v) { r += v & 1; }); return sr.name.toLowerCase() + ' ' + Math.round(r / a.length * 100) + '%'; }).filter(Boolean);
-    var sub = parts.length ? 'lifetime: ' + parts.join(' · ') : '';
-    document.getElementById('accSub').textContent = sub;
+    var sub = parts.length ? 'lifetime: ' + parts.join(' · ') + (stats.accQuizEst ? ' · first ' + stats.accQuizEst + ' count answers placed at estimated hands' : '') : '';
     document.querySelector('#accBig [data-sub]').textContent = sub;
-    if (document.getElementById('accCard').open) drawAcc(document.getElementById('accSmall'));
     if (document.getElementById('accModal').classList.contains('on')) drawAcc(document.getElementById('accBig'));
   }
   (function () {
-    ['accSmall', 'accBig'].forEach(function (id) {
+    ['accBig'].forEach(function (id) {
       var box = document.getElementById(id), host = box.querySelector('[data-chart]'), tip = box.querySelector('[data-tip]');
       function hide() { tip.classList.remove('on'); var g = host.querySelector('.hov'); if (g) g.style.display = 'none'; }
       host.addEventListener('pointermove', function (e) {
@@ -2617,7 +2656,7 @@
           var row = document.createElement('div'); row.className = 'row';
           var sw = document.createElement('i'); sw.style.background = S.sr.color; row.appendChild(sw);
           var nm = document.createElement('span'); nm.textContent = S.sr.name; row.appendChild(nm);
-          var vb = document.createElement('b'); vb.textContent = Math.round(pt.v * 100) + '%'; row.appendChild(vb);
+          var vb = document.createElement('b'); vb.textContent = Math.round(pt.raw * 100) + '%'; row.appendChild(vb);
           tip.appendChild(row);
         });
         var br = box.getBoundingClientRect(); tip.classList.add('on');
@@ -2639,16 +2678,14 @@
       });
     });
     var modal = document.getElementById('accModal');
-    function openBig() { modal.classList.add('on'); renderAcc(); document.getElementById('accClose').focus(); }
-    function closeBig() { modal.classList.remove('on'); document.getElementById('accExpand').focus(); }
-    document.getElementById('accExpand').addEventListener('click', openBig);
+    var opener = null;
+    function openBig(e) { opener = e && e.currentTarget; modal.classList.add('on'); renderAcc(); document.getElementById('accClose').focus(); }
+    function closeBig() { modal.classList.remove('on'); if (opener) opener.focus(); }
+    Array.prototype.forEach.call(document.querySelectorAll('[data-accopen]'), function (b) { b.addEventListener('click', openBig); });
     document.getElementById('accClose').addEventListener('click', closeBig);
     modal.addEventListener('click', function (e) { if (e.target === modal) closeBig(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.classList.contains('on')) { e.stopPropagation(); closeBig(); } }, true);
     var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(renderAcc, 120); });
-    var c = document.getElementById('accCard');
-    try { if (localStorage.getItem('trainer-acc-open') === '1') c.open = true; } catch (e) {}
-    c.addEventListener('toggle', function () { try { localStorage.setItem('trainer-acc-open', c.open ? '1' : '0'); } catch (e) {} renderAcc(); });
   })();
 
   // ---------- True count chart ----------
