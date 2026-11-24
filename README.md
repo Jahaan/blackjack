@@ -45,6 +45,8 @@ A self-contained blackjack expected-value dashboard (single static `index.html`,
     betting on your current table settings, and charts simulated net units against expected with ±1σ/±2σ bands. It uses
     its own shoe and never touches your stats.
   - An **Accuracy trend** chart (graph buttons on Strategy and Count quiz in the Session box) shows smoothed rolling accuracy (last 20 / 50 / 100) or cumulative accuracy for plays, bets and count quizzes against hand number; plays and bets are backfilled from the hand history, and count from the last 30 saved quiz answers (positions estimated).
+  - Slip guard: hitting a hard 17 or more, or standing on 11 or less, asks you to repeat the move to confirm (any other move replaces it).
+  - The Net units tile in the Session box has a graph button that opens the full-screen net units chart.
   - A **Speed** view of the same chart times each decision (hit, stand, double, split, surrender, insurance) from when the game waits on you until you act; anything over 10 seconds is capped at 10 seconds so walking away doesn't skew it. The Strategy row shows your average over the last 50 timed decisions.
   - Each accuracy row in the Session box (Hard, Soft, Pairs, Insurance, Bet size, Index plays) shows its miss count and opens that category's misses, grouped by spot (with miss rate) and newest first.
   - Play feedback under the table can be set to All, Mistakes only, or Off (quick button or settings); grading and stats keep recording.

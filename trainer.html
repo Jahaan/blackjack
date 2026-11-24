@@ -777,7 +777,7 @@
           <div class="stat"><div class="k">Strategy</div><div class="v-row"><div class="v" id="sAcc">—</div><button type="button" class="graph-btn" data-accopen aria-label="Show accuracy trend"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 13h12M3 10l3-3 3 2 4-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><div class="sub" id="sAccSub">0 decisions</div></div>
           <div class="stat"><div class="k">Count quiz</div><div class="v-row"><div class="v" id="sQuiz">—</div><button type="button" class="graph-btn" data-accopen aria-label="Show accuracy trend"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 13h12M3 10l3-3 3 2 4-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><div class="sub" id="sQuizSub">0 quizzes</div></div>
           <div class="stat"><div class="k">Hands</div><div class="v" id="sHands">0</div><div class="sub" id="sStreak">Streak 0</div></div>
-          <div class="stat"><div class="k">Net units</div><div class="v" id="sNet">0</div><div class="sub" id="sShoe">Shoe 1</div></div>
+          <div class="stat"><div class="k">Net units</div><div class="v-row"><div class="v" id="sNet">0</div><button type="button" class="graph-btn" data-unitsopen aria-label="Show net units chart"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 13h12M3 10l3-3 3 2 4-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div><div class="sub" id="sShoe">Shoe 1</div></div>
         </div>
         <div class="cat-rows" id="catRows"></div>
       </div>
@@ -1736,6 +1736,16 @@
         var tDec = performance.now();
         a = await waitFor(legal);
         recordTime(performance.now() - tDec);
+        // Guard against slips: hitting hard 17+ or standing on 11 or less needs the same move twice.
+        while (true) {
+          var tt = total(hand.cards);
+          var slip = (a === 'H' && !tt.soft && tt.t >= 17) || (a === 'S' && tt.t <= 11);
+          if (!slip) break;
+          banner(a === 'H' ? 'Hit again to confirm' : 'Stand again to confirm');
+          var a2 = await waitFor(legal);
+          if (a2 === a) break;
+          a = a2;
+        }
         banner('');
         gctx = { bet: hand.bet };
         grade('play', hand.cards, up, a, correct);
@@ -3066,9 +3076,11 @@
     wireChart(document.getElementById('unitsSmall'));
     wireChart(document.getElementById('unitsBig'));
     var modal = document.getElementById('unitsModal');
-    function openBig() { modal.classList.add('on'); renderUnits(); document.getElementById('unitsClose').focus(); }
-    function closeBig() { modal.classList.remove('on'); document.getElementById('unitsExpand').focus(); }
+    var opener = null;
+    function openBig(e) { opener = e && e.currentTarget; modal.classList.add('on'); renderUnits(); document.getElementById('unitsClose').focus(); }
+    function closeBig() { modal.classList.remove('on'); (opener || document.getElementById('unitsExpand')).focus(); }
     document.getElementById('unitsExpand').addEventListener('click', openBig);
+    document.querySelector('[data-unitsopen]').addEventListener('click', openBig);
     document.getElementById('unitsClose').addEventListener('click', closeBig);
     modal.addEventListener('click', function (e) { if (e.target === modal) closeBig(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.classList.contains('on')) { e.stopPropagation(); closeBig(); } }, true);
