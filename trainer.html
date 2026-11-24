@@ -1097,9 +1097,10 @@
     stats.edgeModel = 5;
   }
   // Accuracy history (rolling-accuracy chart): per result, hand*2 + (1 if right). Backfill plays/bets once from the hand log.
-  // Decision speed: hand*1024 + centiseconds (0–1000). Over 10 s is treated as walked away and not recorded.
+  // Decision speed: hand*1024 + centiseconds (0–1000). Anything over 10 s counts as 10 s (you probably walked away).
   function recordTime(ms) {
-    if (!(ms >= 0) || ms > 10000) return;
+    if (!(ms >= 0)) return;
+    ms = Math.min(ms, 10000);
     stats.tm = stats.tm || [];
     stats.tm.push((stats.hands + 1) * 1024 + Math.round(ms / 10));
   }
@@ -2671,7 +2672,7 @@
     }).join('');
     var shown = series.filter(function (S) { return accOn[S.sr.key] && S.pts.length >= 2; });
     if (!shown.length) {
-      host.innerHTML = '<div class="units-empty">' + (series.some(function (S) { return S.pts.length; }) ? 'Turn a line back on in the legend.' : (speed ? 'Needs at least ' + N + ' timed decisions (only decisions under 10 seconds count).' : 'Needs at least ' + N + ' results of a kind (plays, bets or quiz answers) to draw a line.')) + '</div>';
+      host.innerHTML = '<div class="units-empty">' + (series.some(function (S) { return S.pts.length; }) ? 'Turn a line back on in the legend.' : (speed ? 'Needs at least ' + N + ' timed decisions.' : 'Needs at least ' + N + ' results of a kind (plays, bets or quiz answers) to draw a line.')) + '</div>';
       accState[box.id] = null; return;
     }
     var h0 = Infinity, h1 = -Infinity;
@@ -2719,7 +2720,7 @@
     var sub = parts.length ? 'lifetime: ' + parts.join(' · ') + (stats.accQuizEst ? ' · first ' + stats.accQuizEst + ' count answers placed at estimated hands' : '') : '';
     if (accMode === 'speed') {
       var t = stats.tm || [];
-      sub = t.length ? t.length + ' timed decisions · lifetime avg ' + (t.reduce(function (a, v) { return a + (v & 1023); }, 0) / t.length / 100).toFixed(2) + 's · decisions over 10 s are ignored' : 'Decision times are recorded from now on (over 10 s is ignored).';
+      sub = t.length ? t.length + ' timed decisions · lifetime avg ' + (t.reduce(function (a, v) { return a + (v & 1023); }, 0) / t.length / 100).toFixed(2) + 's · waits over 10 s count as 10 s' : 'Decision times are recorded from now on (waits over 10 s count as 10 s).';
     }
     document.getElementById('accTitle').textContent = accMode === 'speed' ? 'Decision speed' : 'Accuracy trend';
     document.querySelector('#accBig [data-sub]').textContent = sub;
