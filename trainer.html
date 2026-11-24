@@ -700,7 +700,7 @@
     <div class="rules">
       <span class="rule-chip" id="chipDecks">6 decks</span>
       <span class="rule-chip">Dealer hits soft 17</span>
-      <span class="rule-chip">Late surrender</span>
+      <span class="rule-chip" id="chipSur">Late surrender</span>
       <span class="rule-chip">Double after split</span>
       <span class="rule-chip">Blackjack 3:2</span>
     </div>
@@ -866,6 +866,7 @@
           <select id="setSpread"><option value="4">1–4 units</option><option value="8">1–8 units</option><option value="12">1–12 units</option></select></div>
         <div class="set-row"><label for="setFeedback">Play feedback under the table</label>
           <select id="setFeedback"><option value="all">All (✓ and ✗)</option><option value="miss">Mistakes only</option><option value="off">Off</option></select></div>
+        <div class="set-row"><label for="setLs">Late surrender allowed</label><span class="switch"><input type="checkbox" id="setLs"><span></span></span></div>
         <div class="set-row"><label for="setHideTotals">Hide hand totals (real-table mode)</label><span class="switch"><input type="checkbox" id="setHideTotals"><span></span></span></div>
         <div class="set-row"><label for="setButtons">Show action buttons too</label><span class="switch"><input type="checkbox" id="setButtons"><span></span></span></div>
         <div class="set-row"><label for="setShow">Show count (training wheels)</label><span class="switch"><input type="checkbox" id="setShow"><span></span></span></div>
@@ -1001,7 +1002,8 @@
     return V[n - 1];
   }
   // devs = playing the index plays (and insurance at +3); otherwise basic strategy.
-  function edgeAt(tc, devs) { return devs ? interpEdge(EDGE_TC_DEV, EDGE_V_DEV, tc) : interpEdge(EDGE_TC, EDGE_V, tc); }
+  // Tables were measured with late surrender; without it the player gives up about 0.09% (6D H17).
+  function edgeAt(tc, devs, noSur) { return (devs ? interpEdge(EDGE_TC_DEV, EDGE_V_DEV, tc) : interpEdge(EDGE_TC, EDGE_V, tc)) - (noSur ? 0.0009 : 0); }
 
   // ---------- Cards ----------
   var SUITS = ['♠', '♥', '♦', '♣'];
@@ -1042,7 +1044,7 @@
     }
   }
 
-  var DEFAULT_SETTINGS = { decks: 6, pen: 0.75, bots: 2, seat: 'middle', speed: 'normal', auto: true, quiz: '4-7', quizType: 'rc', devs: false, show: false, buttons: false, hideTotals: false, betting: true, spread: 8, feedback: 'all' };
+  var DEFAULT_SETTINGS = { decks: 6, pen: 0.75, bots: 2, seat: 'middle', speed: 'normal', auto: true, quiz: '4-7', quizType: 'rc', devs: false, show: false, buttons: false, hideTotals: false, betting: true, spread: 8, feedback: 'all', ls: true };
   function freshStats() {
     return { hands: 0, decisions: 0, correct: 0, cats: { hard: [0, 0], soft: [0, 0], pair: [0, 0], ins: [0, 0], dev: [0, 0], bet: [0, 0] },
       quizzes: 0, quizCorrect: 0, quizErr: 0, rcQ: 0, rcCorrect: 0, tcQ: 0, tcCorrect: 0, net: 0, streak: 0, best: 0, shoes: 1,
@@ -1503,7 +1505,7 @@
     if (hand.cards.length === 2 && !hand.splitAces) {
       L.push('D');
       if (cval(hand.cards[0].r) === cval(hand.cards[1].r) && seat.hands.length < 4) L.push('P');
-      if (seat.hands.length === 1) L.push('R');
+      if (seat.hands.length === 1 && settings.ls) L.push('R');
     }
     return L;
   }
@@ -1718,11 +1720,12 @@
       await waitStart('Shoe complete', 'Reshuffled — running count resets to 0. Press Start (or Space) when you\'re ready.', done);
     }
     setupSeats(); roundOver = false; activeHand = null;
+    if (settings.feedback === 'miss') clearFeedback();               // a mistake alert only lasts until the next hand
     banner(''); render();
     await bettingPhase();
     var tc0 = trueCount(), me0 = mySeat();
     curLog = { n: stats.hands + 1, shoe: stats.shoes, tc: Math.round(tc0 * 10) / 10, rc: rc, bet: me0.hands[0].bet,
-      ramp: settings.betting ? rampBet(Math.floor(tc0)) : null, betOk: lastBetOk, plays: [], netBefore: stats.net, devs: !!settings.devs };
+      ramp: settings.betting ? rampBet(Math.floor(tc0)) : null, betOk: lastBetOk, plays: [], netBefore: stats.net, devs: !!settings.devs, ns: !settings.ls };
     await step(0.6);
 
     // Deal two rounds
@@ -1861,7 +1864,7 @@
     shoeRec.pts.push(stats.net);
     if (curLog) {
       var cs = function (cards) { return cards.map(function (c) { return c.r; }).join(' '); };
-      var edge = edgeAt(curLog.tc, false);                                 // basic-strategy edge at the true count
+      var edge = edgeAt(curLog.tc, false, curLog.ns);                                 // basic-strategy edge at the true count
       var cost = curLog.plays.reduce(function (a, pl) { return a + (pl.cost || 0); }, 0);
       var ev3 = curLog.ev3 !== undefined ? curLog.ev3 : edge;
       var evp = curLog.bet * ev3;                                         // these 3 cards, perfect play
@@ -1870,8 +1873,8 @@
       var tcRamp = (curLog.ramp != null ? curLog.ramp : curLog.bet) * edge; // ramp bet x edge at the true count
       var betCost = tcYou - tcRamp;                                        // >0 helped, <0 hurt
       var rampOrBet = curLog.ramp != null ? curLog.ramp : curLog.bet;
-      var tcPlay = curLog.bet * edgeAt(curLog.tc, curLog.devs) - cost;     // your bets, your play (graded baseline − misplays)
-      var tcPerf = rampOrBet * edgeAt(curLog.tc, true);                    // ramp bets, perfect play incl. index plays
+      var tcPlay = curLog.bet * edgeAt(curLog.tc, curLog.devs, curLog.ns) - cost;     // your bets, your play (graded baseline − misplays)
+      var tcPerf = rampOrBet * edgeAt(curLog.tc, true, curLog.ns);                    // ramp bets, perfect play incl. index plays
       stats.ev = (stats.ev || 0) + ev;
       stats.evp = (stats.evp || 0) + evp;
       var rec = {
@@ -2373,7 +2376,7 @@
         var d = pick(DEVS);
         var tc = Math.round((d.idx + (Math.random() * 5 - 2.5)) * 10) / 10;
         var cards = d.pair ? [card(10), card(10)] : hardCards(d.t, d.noR ? 3 : 2);
-        var legal = d.noR ? ['H', 'S'] : legalFor(cards, true);
+        var legal = d.noR ? ['H', 'S'] : legalFor(cards, settings.ls);
         var c = correctPlay(cards, d.u, legal, tc, true);
         var basic = correctPlay(cards, d.u, legal, tc, false).action;
         var when = (d.dir === 'ge' ? '≥ ' : '< ') + (d.idx > 0 ? '+' : '') + d.idx;
@@ -2384,7 +2387,7 @@
       var cs;
       if (D.kind === 'soft') cs = Math.random() < 0.25 ? softCards(15 + ri(5), 3) : softCards(13 + ri(8), 2);
       else cs = Math.random() < 0.5 ? hardCards(8 + ri(4), 2) : softCards(13 + ri(7), 2);
-      var lg = legalFor(cs, true);
+      var lg = legalFor(cs, settings.ls);
       var cc = correctPlay(cs, up, lg, 0, false);
       var tt = total(cs);
       return { up: up, cards: cs, tc: null, legal: lg, right: cc.action,
@@ -2409,7 +2412,7 @@
       var acts = document.getElementById('drillActs');
       acts.className = 'acts drill-acts' + (q.ins ? ' n2' : '');
       acts.innerHTML = keys.map(function (k) { return '<button class="act" type="button" data-a="' + k + '"' + (q.legal.indexOf(k) < 0 ? ' disabled' : '') + '>' + BTN[k] + '<kbd>' + k + '</kbd></button>'; }).join('');
-      var fb = document.getElementById('drillFb'); fb.className = 'feedback'; fb.innerHTML = '<span class="ic">?</span><span>' + (q.tc != null ? 'Use the true count shown.' : 'Basic strategy (dealer hits soft 17, late surrender).') + '</span>';
+      var fb = document.getElementById('drillFb'); fb.className = 'feedback'; fb.innerHTML = '<span class="ic">?</span><span>' + (q.tc != null ? 'Use the true count shown.' : 'Basic strategy (dealer hits soft 17, ' + (settings.ls ? 'late surrender' : 'no surrender') + ').') + '</span>';
       document.getElementById('drillNext').hidden = true;
     }
     function answer(a) {
@@ -2503,7 +2506,7 @@
       if (h.cards.length === 2 && !h.splitAces) {
         L.push('D');
         if (cval(h.cards[0].r) === cval(h.cards[1].r) && hands.length < 4) L.push('P');
-        if (hands.length === 1) L.push('R');
+        if (hands.length === 1 && cfg.ls) L.push('R');
       }
       return L;
     }
@@ -2564,7 +2567,7 @@
         });
       }
       res.n++; res.net += amt; res.sumSq += amt * amt;
-      var e = bet * edgeAt(tc, cfg.devs); res.exp += e;
+      var e = bet * edgeAt(tc, cfg.devs, !cfg.ls); res.exp += e;
       if (tc >= 3) res.at3++;
       res.peak = Math.max(res.peak, res.net);
       res.maxDD = Math.max(res.maxDD, res.peak - res.net);
@@ -2640,7 +2643,7 @@
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.classList.contains('on')) { e.stopPropagation(); close(); } }, true);
     runBtn.addEventListener('click', function () {
       var N = +document.getElementById('simHands').value;
-      var cfg = { decks: settings.decks, pen: settings.pen, bots: settings.bots, seat: settings.seat, spread: settings.spread, betting: settings.betting, devs: settings.devs };
+      var cfg = { decks: settings.decks, pen: settings.pen, bots: settings.bots, seat: settings.seat, spread: settings.spread, betting: settings.betting, devs: settings.devs, ls: settings.ls };
       document.getElementById('simRules').textContent = rulesText();
       var sim = makeSim(N, cfg);
       simState = { pts: sim.pts, res: sim.res };
@@ -2877,7 +2880,7 @@
     // what the ramp would expect per 100 hands at the counts you actually saw
     var bs = stats.betSeries || [], rs = stats.rampSeries || [], on = 0, over = 0, under = 0, bn = 0;
     bs.forEach(function (b, k) { if (b == null || rs[k] == null) return; bn++; if (b === rs[k]) on++; else if (b > rs[k]) over++; else under++; });
-    var rampEV = 0; tcs.forEach(function (tc) { rampEV += Math.max(1, Math.min(settings.spread, Math.floor(tc) - 1)) * edgeAt(tc, settings.devs); });
+    var rampEV = 0; tcs.forEach(function (tc) { rampEV += Math.max(1, Math.min(settings.spread, Math.floor(tc) - 1)) * edgeAt(tc, settings.devs, !settings.ls); });
     return {
       n: n, avg: avg, max: Math.max.apply(null, tcs), min: Math.min.apply(null, tcs), shoes: Object.keys(shoes).length,
       atOrBelow1: cnt(function (v) { return v < 2; }) / n, at2: cnt(function (v) { return v >= 2; }) / n,
@@ -3315,6 +3318,13 @@
     el.value = String(settings[key]);
     el.addEventListener('change', function () { settings[key] = parse ? parse(el.value) : el.value; onSettings(key); });
   }
+  function applySurrenderRule() {
+    document.getElementById('chipSur').textContent = settings.ls ? 'Late surrender' : 'No surrender';
+    cheatRules.ls = settings.ls;                   // the cheat sheet follows the table rule
+    try { localStorage.setItem('trainer-cheat-rules', JSON.stringify(cheatRules)); } catch (e) {}
+    renderCheat();
+    if (pending && pending.legal.indexOf('H') >= 0) setFeedback('', '↻', settings.ls ? 'Late surrender is on.' : 'No surrender: it is no longer offered.');
+  }
   function bindSwitch(id, key) {
     var el = document.getElementById(id);
     el.checked = !!settings[key];
@@ -3342,6 +3352,9 @@
   bindSwitch('setShow', 'show');
   bindSwitch('setButtons', 'buttons');
   bindSwitch('setHideTotals', 'hideTotals');
+  bindSwitch('setLs', 'ls');
+  applySurrenderRule();
+  document.getElementById('setLs').addEventListener('change', applySurrenderRule);
   bindSelect('setFeedback', 'feedback');
   document.getElementById('setFeedback').addEventListener('change', applyFeedbackMode);
   document.getElementById('fbBtn').addEventListener('click', function () {
@@ -3357,6 +3370,7 @@
     b.classList.toggle('on', settings.hideTotals);
     b.setAttribute('aria-pressed', String(settings.hideTotals));
     document.getElementById('setHideTotals').checked = settings.hideTotals;
+    document.getElementById('setLs').checked = settings.ls;
   }
   document.getElementById('totalsBtn').addEventListener('click', function () {
     settings.hideTotals = !settings.hideTotals; save(); syncTotalsBtn();
@@ -3542,7 +3556,7 @@
     var opts = GEST_ACT[kind];
     for (var i = 0; i < opts.length; i++) if (doAct(opts[i])) return;
     if (pending.legal.indexOf('I') >= 0) toast('Chip on the insurance line to insure, or wave it off', true);
-    else toast(GEST_WHY[kind], true);
+    else toast(kind === 'line' && !settings.ls ? 'Surrender isn\'t offered at this table' : GEST_WHY[kind], true);
   }
   felt.addEventListener('pointerup', function (e) { endGesture(e, false); });
   felt.addEventListener('pointercancel', function (e) { endGesture(e, true); });

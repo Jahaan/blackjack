@@ -46,6 +46,8 @@ A self-contained blackjack expected-value dashboard (single static `index.html`,
     its own shoe and never touches your stats.
   - An **Accuracy trend** chart (graph buttons on Strategy and Count quiz in the Session box) shows smoothed rolling accuracy (last 20 / 50 / 100) or cumulative accuracy for plays, bets and count quizzes against hand number; plays and bets are backfilled from the hand history, and count from the last 30 saved quiz answers (positions estimated).
   - End-of-shoe summary on the reshuffle screen: count, bet, play and index-play accuracy for that shoe, and a sparkline of net units from the start of the shoe to the end, plus **Retry mistakes**, which replays each missed decision (same cards, true count shown) as a practice drill that doesn't touch your stats. The mistake log now shows the true count for each miss.
+  - **Late surrender** can be turned off in settings (No surrender). Surrender is then never offered, grading uses no-surrender basic strategy and index plays (e.g. 16 vs 10 stands at TC 0+), the cheat sheet switches to match, and the expected-value lines drop about 0.09%.
+  - With feedback set to Mistakes only, a mistake alert clears when the next hand starts.
   - Slip guard: hitting a hard 17 or more, or standing on 11 or less, asks you to repeat the move to confirm (any other move replaces it).
   - The Net units tile in the Session box has a graph button that opens the full-screen net units chart.
   - A **Speed** view of the same chart times each decision (hit, stand, double, split, surrender, insurance) from when the game waits on you until you act; anything over 10 seconds is capped at 10 seconds so walking away doesn't skew it. The Strategy row shows your average over the last 50 timed decisions.
