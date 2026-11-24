@@ -436,6 +436,7 @@
   .graph-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .acc-win { flex: 1; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
   .acc-win .tabs { margin: 0; width: 260px; }
+  .acc-mode { margin: 0 12px 0 0; width: 190px; flex: none; }
   .tc-key { flex: 1; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--ink-soft); padding-top: 4px; }
   .tc-key i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
   .tc-key .k-tc { background: var(--series-1); }
@@ -566,6 +567,12 @@
   .cheat td.w { font-family: var(--mono); white-space: nowrap; text-align: right; }
   .cheat td.n { color: var(--ink-faint); font-size: 11px; }
   .cheat-status { flex: 1; }
+  .cheat td.v { font-family: var(--mono); text-align: right; white-space: nowrap; color: var(--win); font-weight: 700; }
+  .cheat td.v.neg { color: var(--lose); }
+  .cheat td.v small { display: block; font-weight: 500; color: var(--ink-faint); font-size: 10.5px; }
+  .cheat-worth { font-size: 12px; color: var(--ink-soft); background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; line-height: 1.45; }
+  .cheat-big .cheat-worth { grid-column: 1 / -1; font-size: 13.5px; }
+  .cheat-big td.v small { font-size: 12px; }
   .cheat-rules { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; }
   .cheat-rules .tabs { margin: 0; flex: 1 1 160px; }
   .cheat-rules-sum { color: var(--ink-faint); }
@@ -924,7 +931,7 @@
 <div class="units-modal" id="accModal" role="dialog" aria-modal="true" aria-labelledby="accTitle">
   <div class="box units-body" id="accBig">
     <div class="head"><h2 id="accTitle">Accuracy trend</h2><span data-sub></span><button type="button" class="units-expand" id="accClose">Close ✕</button></div>
-    <div class="units-tools"><div class="acc-win">Rolling <span class="tabs" data-accwin><button type="button" data-w="20">20</button><button type="button" data-w="50">50</button><button type="button" data-w="100">100</button><button type="button" data-w="0">Cumulative</button></span></div></div>
+    <div class="units-tools"><span class="tabs acc-mode" data-accmode><button type="button" data-m="acc">Accuracy</button><button type="button" data-m="speed">Speed</button></span><div class="acc-win">Window <span class="tabs" data-accwin><button type="button" data-w="20">20</button><button type="button" data-w="50">50</button><button type="button" data-w="100">100</button><button type="button" data-w="0">Cumulative</button></span></div></div>
     <div class="units-legend acc-legend" data-legend></div>
     <div class="units-chart" data-chart role="img" aria-label="Rolling accuracy"></div>
     <div class="units-tip" data-tip role="status"></div>
@@ -1090,6 +1097,12 @@
     stats.edgeModel = 5;
   }
   // Accuracy history (rolling-accuracy chart): per result, hand*2 + (1 if right). Backfill plays/bets once from the hand log.
+  // Decision speed: hand*1024 + centiseconds (0–1000). Over 10 s is treated as walked away and not recorded.
+  function recordTime(ms) {
+    if (!(ms >= 0) || ms > 10000) return;
+    stats.tm = stats.tm || [];
+    stats.tm.push((stats.hands + 1) * 1024 + Math.round(ms / 10));
+  }
   function accPush(kind, hand, ok) {
     stats.acc = stats.acc || { play: [], bet: [], quiz: [] };
     (stats.acc[kind] = stats.acc[kind] || []).push(Math.max(0, hand) * 2 + (ok ? 1 : 0));
@@ -1269,9 +1282,17 @@
     var ls = cheatRules.ls, h17 = cheatRules.h17;
     var groups = [['S', 'Stand instead of hit'], ['H', 'Hit instead of stand'], ['D', 'Double'], ['P', 'Split tens'], ['R', 'Surrender (first two cards)']];
     var AN = { S: 'Stand', H: 'Hit', D: 'Double', P: 'Split', R: 'Surrender' };
-    var row = function (hand, up, act, when, note) {
-      return '<tr><td class="h">' + hand + '</td><td class="n">vs ' + up + '</td><td class="a">' + act + '</td><td class="w">' + when + '</td></tr>' +
-        (note ? '<tr><td></td><td colspan="3" class="n">' + note + '</td></tr>' : '');
+    var showVal = ls && h17 && DEV_VALUE.rows;      // values were measured for H17 + late surrender
+    var val = function (key) {
+      if (!showVal) return '';
+      var v = DEV_VALUE.rows[key];
+      if (!v) return '<td class="v">—</td>';
+      return '<td class="v' + (v[0] < 0 ? ' neg' : '') + '" title="' + (v[1] >= 0 ? '+' : '−') + Math.abs(v[1]).toFixed(3) + ' units each time it comes up (with ramp bets) · about ' + v[2].toFixed(2) + ' times per 100 hands">' +
+        (v[0] >= 0 ? '+' : '−') + Math.abs(v[0]).toFixed(3) + '<small>' + (v[1] >= 0 ? '+' : '−') + Math.abs(v[1]).toFixed(2) + 'u each</small></td>';
+    };
+    var row = function (hand, up, act, when, note, key) {
+      return '<tr><td class="h">' + hand + '</td><td class="n">vs ' + up + '</td><td class="a">' + act + '</td><td class="w">' + when + '</td>' + val(key) + '</tr>' +
+        (note ? '<tr><td></td><td colspan="' + (showVal ? 4 : 3) + '" class="n">' + note + '</td></tr>' : '');
     };
     var list = cheatList(ls, h17), html = '';
     groups.forEach(function (g) {
@@ -1279,10 +1300,12 @@
       if (!rows.length) return;
       html += '<div class="cheat-group"><h4>' + g[1] + '</h4><table>' + rows.map(function (d) {
         var when = 'TC ' + (d.dir === 'ge' ? '≥ ' : '< ') + (d.idx > 0 ? '+' : d.idx < 0 ? '−' : '') + Math.abs(d.idx);
-        return row(d.pair ? '10,10' : d.t, upLabel(d.u), AN[d.act], when, d.note || '');
+        var hand = d.pair ? '10,10' : String(d.t);
+        return row(hand, upLabel(d.u), AN[d.act], when, d.note || '', hand + '|' + upLabel(d.u) + '|' + AN[d.act]);
       }).join('') + '</table></div>';
     });
-    html += '<div class="cheat-group"><h4>Insurance</h4><table>' + row('—', 'A', 'Take insurance', 'TC ≥ +3', 'decline below +3') + '</table></div>';
+    html += '<div class="cheat-group"><h4>Insurance</h4><table>' + row('—', 'A', 'Take insurance', 'TC ≥ +3', 'decline below +3', 'ins') + '</table></div>';
+    if (showVal) html = '<div class="cheat-worth"><b>Worth</b> = extra units per 100 hands vs playing basic strategy, betting a 1–8 ramp (6 decks, 80% pen, heads-up); small number = average gain each time it comes up (in units, with ramp bets). All ' + list.length + ' index plays + insurance together: <b>+' + DEV_VALUE.total.toFixed(2) + ' units / 100 hands</b>. Measured from ' + DEV_VALUE.hands + ' simulated hands, playing each hand both ways from the same cards.</div>' + html;
     var matches = ls && h17;
     var rules = (h17 ? 'H17' : 'S17') + ' · ' + (ls ? 'late surrender' : 'no surrender') + ' · ' + list.length + ' index plays + insurance';
     var status = (matches
@@ -1295,6 +1318,9 @@
       el.classList.toggle('on', cheatRules[k] === v); el.setAttribute('aria-pressed', String(cheatRules[k] === v));
     });
   }
+  // Value of each index play (H17, late surrender, 6D, 80% pen, heads-up, 1–8 ramp), measured by paired simulation:
+  // key -> [units per 100 hands, gain per occurrence as a fraction of the bet, occurrences per 100 hands]
+  var DEV_VALUE = {"total":0.265,"hands":"1.6 billion","rows":{"ins":[0.0776,0.1121,0.692],"10,10|6|Split":[0.0231,0.5897,0.039],"15|10|Hit":[0.0218,0.0208,1.052],"16|10|Stand":[0.0213,0.0268,0.792],"14|10|Surrender":[0.02,0.101,0.198],"10,10|5|Split":[0.018,0.7801,0.023],"12|3|Stand":[0.016,0.1081,0.148],"12|2|Stand":[0.0098,0.1126,0.087],"15|9|Surrender":[0.0084,0.0925,0.091],"12|4|Hit":[0.0077,0.0245,0.314],"9|2|Double":[0.0069,0.0643,0.107],"10|10|Double":[0.0058,0.0795,0.072],"15|10|Stand":[0.0053,0.0779,0.068],"13|2|Hit":[0.0052,0.023,0.227],"10|A|Double":[0.0048,0.2285,0.021],"9|7|Double":[0.0046,0.1391,0.033],"12|5|Hit":[0.0038,0.0336,0.112],"13|3|Hit":[0.0025,0.0199,0.126],"15|A|Hit":[0.002,0.0161,0.122],"16|9|Stand":[0.0016,0.1076,0.015],"12|6|Hit":[-0.0016,-0.0084,0.191]}};
   function devPlay(cards, u, legal, tc) {
     var tt = total(cards);
     var pair = cards.length === 2 && cval(cards[0].r) === cval(cards[1].r);
@@ -1647,7 +1673,9 @@
     // Insurance
     if (up === 11) {
       banner('Insurance?');
+      var tIns = performance.now();
       var a = await waitFor(['I', 'N']);
+      recordTime(performance.now() - tIns);
       var tc = trueCount();
       var right = settings.devs && tc >= 3 ? 'I' : 'N';
       gctx = { bet: me.hands[0].bet };
@@ -1704,7 +1732,9 @@
       var a;
       if (seat.me) {
         banner('Your move');
+        var tDec = performance.now();
         a = await waitFor(legal);
+        recordTime(performance.now() - tDec);
         banner('');
         gctx = { bet: hand.bet };
         grade('play', hand.cards, up, a, correct);
@@ -2566,7 +2596,8 @@
     { key: 'bet', name: 'Bets', color: 'var(--series-2)', dash: '6 4' },
     { key: 'quiz', name: 'Count', color: 'var(--series-3)', dash: '2 3' }
   ];
-  var accWin = 20, accOn = { play: true, bet: true, quiz: true };
+  var accWin = 20, accOn = { play: true, bet: true, quiz: true }, accMode = 'acc';
+  try { accMode = localStorage.getItem('trainer-acc-mode') === 'speed' ? 'speed' : 'acc'; } catch (e) {}
   try { var aw = localStorage.getItem('trainer-acc-win'); accWin = [0, 20, 50, 100].indexOf(+aw) >= 0 && aw !== null ? +aw : 20; Object.assign(accOn, JSON.parse(localStorage.getItem('trainer-acc-lines') || '{}')); } catch (e) {}
   var accState = {};
   function accCumulative(arr, MIN) {                // running lifetime accuracy, from the MIN-th result on
@@ -2615,37 +2646,52 @@
   }
   function drawAcc(box) {
     var host = box.querySelector('[data-chart]'), legend = box.querySelector('[data-legend]');
-    var A = stats.acc || {}, cum = accWin === 0, N = cum ? 20 : accWin, big = box.id === 'accBig';
+    var A = stats.acc || {}, cum = accWin === 0, N = cum ? 20 : accWin, big = box.id === 'accBig', speed = accMode === 'speed';
     Array.prototype.forEach.call(box.querySelectorAll('[data-accwin] button'), function (b) { b.classList.toggle('on', +b.getAttribute('data-w') === accWin); });
-    var series = ACC.map(function (sr) {
+    Array.prototype.forEach.call(box.querySelectorAll('[data-accmode] button'), function (b) { b.classList.toggle('on', b.getAttribute('data-m') === accMode); });
+    var fmt = speed ? function (v) { return v.toFixed(1) + 's'; } : function (v) { return Math.round(v * 100) + '%'; };
+    var series;
+    if (speed) {
+      // seconds per decision; same rolling / cumulative machinery (value = seconds instead of right/wrong)
+      var tm = stats.tm || [], secs = tm.map(function (v) { return { h: Math.floor(v / 1024), s: (v & 1023) / 100 }; }), pts = [];
+      if (cum) { var sum = 0; secs.forEach(function (o, i) { sum += o.s; if (i >= N - 1) pts.push({ h: o.h, v: sum / (i + 1), raw: sum / (i + 1) }); }); }
+      else { var rs = 0; secs.forEach(function (o, i) { rs += o.s; if (i >= N) rs -= secs[i - N].s; if (i >= N - 1) pts.push({ h: o.h, v: rs / N }); }); pts = accSmooth(pts, Math.max(2, Math.round(N / 4))); }
+      series = [{ sr: { key: 'tm', name: 'Decision time', color: 'var(--series-1)', dash: '' }, pts: pts, n: secs.length }];
+      accOn.tm = true;
+    } else series = ACC.map(function (sr) {
       var arr = A[sr.key] || [];
       var tot = arr.length, right = 0; for (var i = 0; i < tot; i++) right += arr[i] & 1;
       return { sr: sr, pts: cum ? accCumulative(arr, N) : accSmooth(accRolling(arr, N), Math.max(2, Math.round(N / 4))), n: tot, life: tot ? right / tot : null };
     });
     legend.innerHTML = series.map(function (S) {
-      var last = S.pts.length ? Math.round(S.pts[S.pts.length - 1].raw * 100) + '%' : (S.n ? S.n + '/' + N : '—');
+      var last = S.pts.length ? fmt(S.pts[S.pts.length - 1].raw) : (S.n ? S.n + '/' + N : '—');
       return '<button type="button" data-accline="' + S.sr.key + '" aria-pressed="' + (accOn[S.sr.key] ? 'true' : 'false') + '">' +
         '<svg viewBox="0 0 16 6"><line x1="1" y1="3" x2="15" y2="3" stroke="' + S.sr.color + '" stroke-width="2.5" stroke-linecap="round"' + (S.sr.dash ? ' stroke-dasharray="' + (S.sr.dash === '2 3' ? '2 2' : '4 3') + '"' : '') + '/></svg>' +
         S.sr.name + ' <b>' + last + '</b></button>';
     }).join('');
     var shown = series.filter(function (S) { return accOn[S.sr.key] && S.pts.length >= 2; });
     if (!shown.length) {
-      host.innerHTML = '<div class="units-empty">' + (series.some(function (S) { return S.pts.length; }) ? 'Turn a line back on in the legend.' : 'Needs at least ' + N + ' results of a kind (plays, bets or quiz answers) to draw a line.') + '</div>';
+      host.innerHTML = '<div class="units-empty">' + (series.some(function (S) { return S.pts.length; }) ? 'Turn a line back on in the legend.' : (speed ? 'Needs at least ' + N + ' timed decisions (only decisions under 10 seconds count).' : 'Needs at least ' + N + ' results of a kind (plays, bets or quiz answers) to draw a line.')) + '</div>';
       accState[box.id] = null; return;
     }
     var h0 = Infinity, h1 = -Infinity;
     shown.forEach(function (S) { h0 = Math.min(h0, S.pts[0].h); h1 = Math.max(h1, S.pts[S.pts.length - 1].h); });
     if (h1 === h0) h1 = h0 + 1;
     var W = host.clientWidth || 280, H = host.clientHeight || 170, padL = big ? 44 : 34, padR = big ? 56 : 40, padT = 10, padB = big ? 24 : 18;
-    var lo = 0.5;                                   // y from 50% to 100% unless you've been below
-    shown.forEach(function (S) { S.pts.forEach(function (p) { lo = Math.min(lo, Math.floor(p.v * 10) / 10); }); });
+    var lo, hi, step;
+    if (speed) {                                    // 0 s up to just above your slowest stretch
+      hi = 1; shown.forEach(function (S) { S.pts.forEach(function (p) { hi = Math.max(hi, p.v); }); });
+      hi = Math.ceil(hi + 0.25); lo = 0; step = hi <= 3 ? 0.5 : hi <= 6 ? 1 : 2;
+    } else {                                        // 50% to 100% unless you've been below
+      lo = 0.5; shown.forEach(function (S) { S.pts.forEach(function (p) { lo = Math.min(lo, Math.floor(p.v * 10) / 10); }); });
+      hi = 1; step = big ? 0.1 : (1 - lo > 0.3 ? 0.25 : 0.1);
+    }
     var x = function (h) { return padL + (W - padL - padR) * (h - h0) / (h1 - h0); };
-    var y = function (v) { return padT + (H - padT - padB) * (1 - (v - lo) / (1 - lo)); };
+    var y = function (v) { return padT + (H - padT - padB) * (1 - (v - lo) / (hi - lo)); };
     var svg = '<svg class="plot" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">';
-    var step = big ? 0.1 : (1 - lo > 0.3 ? 0.25 : 0.1);
-    for (var g = 1; g >= lo - 1e-9; g -= step) {
+    for (var g = hi; g >= lo - 1e-9; g -= step) {
       svg += '<line class="grid" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(g) + '" y2="' + y(g) + '"/>' +
-        '<text class="ax" x="' + (padL - 6) + '" y="' + (y(g) + 3.5) + '" text-anchor="end">' + Math.round(g * 100) + '%</text>';
+        '<text class="ax" x="' + (padL - 6) + '" y="' + (y(g) + 3.5) + '" text-anchor="end">' + (speed ? (+g.toFixed(1)) + 's' : Math.round(g * 100) + '%') + '</text>';
     }
     svg += '<text class="ax" x="' + padL + '" y="' + (H - 3) + '">hand ' + h0 + '</text><text class="ax" x="' + (W - padR) + '" y="' + (H - 3) + '" text-anchor="end">' + h1 + '</text>';
     var lbl = [];
@@ -2656,7 +2702,7 @@
       svg += '<path class="ln" d="' + d + '" stroke="' + S.sr.color + '"' + (S.sr.dash ? ' stroke-dasharray="' + S.sr.dash + '"' : '') + '/>';
       var L = S.pts[S.pts.length - 1];
       svg += '<circle class="end" cx="' + x(L.h) + '" cy="' + y(L.v) + '" r="4" fill="' + S.sr.color + '"/>';
-      lbl.push({ y: y(L.v), x: x(L.h), t: Math.round(L.raw * 100) + '%' });
+      lbl.push({ y: y(L.v), x: x(L.h), t: fmt(L.raw) });
     });
     lbl.sort(function (a, b) { return a.y - b.y; });
     for (var i = 1; i < lbl.length; i++) if (lbl[i].y - lbl[i - 1].y < 13) lbl[i].y = lbl[i - 1].y + 13;
@@ -2664,13 +2710,18 @@
     svg += '<g class="hov" style="display:none"><line class="hair" y1="' + padT + '" y2="' + (H - padB) + '"/>' +
       shown.map(function (S) { return '<circle class="hdot" r="4" data-k="' + S.sr.key + '" fill="' + S.sr.color + '"/>'; }).join('') + '</g></svg>';
     host.innerHTML = svg;
-    host.setAttribute('aria-label', (cum ? 'Cumulative' : 'Rolling ' + N) + ' accuracy: ' + shown.map(function (S) { return S.sr.name + ' ' + Math.round(S.pts[S.pts.length - 1].v * 100) + '%'; }).join(', '));
-    accState[box.id] = { shown: shown, x: x, y: y, h0: h0, h1: h1, W: W, padL: padL, padR: padR };
+    host.setAttribute('aria-label', (cum ? 'Cumulative' : 'Rolling ' + N) + (speed ? ' decision time: ' : ' accuracy: ') + shown.map(function (S) { return S.sr.name + ' ' + fmt(S.pts[S.pts.length - 1].raw); }).join(', '));
+    accState[box.id] = { shown: shown, x: x, y: y, h0: h0, h1: h1, W: W, padL: padL, padR: padR, fmt: fmt };
   }
   function renderAcc() {
     var A = stats.acc || {};
     var parts = ACC.map(function (sr) { var a = A[sr.key] || []; if (!a.length) return null; var r = 0; a.forEach(function (v) { r += v & 1; }); return sr.name.toLowerCase() + ' ' + Math.round(r / a.length * 100) + '%'; }).filter(Boolean);
     var sub = parts.length ? 'lifetime: ' + parts.join(' · ') + (stats.accQuizEst ? ' · first ' + stats.accQuizEst + ' count answers placed at estimated hands' : '') : '';
+    if (accMode === 'speed') {
+      var t = stats.tm || [];
+      sub = t.length ? t.length + ' timed decisions · lifetime avg ' + (t.reduce(function (a, v) { return a + (v & 1023); }, 0) / t.length / 100).toFixed(2) + 's · decisions over 10 s are ignored' : 'Decision times are recorded from now on (over 10 s is ignored).';
+    }
+    document.getElementById('accTitle').textContent = accMode === 'speed' ? 'Decision speed' : 'Accuracy trend';
     document.querySelector('#accBig [data-sub]').textContent = sub;
     if (document.getElementById('accModal').classList.contains('on')) drawAcc(document.getElementById('accBig'));
   }
@@ -2694,7 +2745,7 @@
           var row = document.createElement('div'); row.className = 'row';
           var sw = document.createElement('i'); sw.style.background = S.sr.color; row.appendChild(sw);
           var nm = document.createElement('span'); nm.textContent = S.sr.name; row.appendChild(nm);
-          var vb = document.createElement('b'); vb.textContent = Math.round(pt.raw * 100) + '%'; row.appendChild(vb);
+          var vb = document.createElement('b'); vb.textContent = st.fmt(pt.raw); row.appendChild(vb);
           tip.appendChild(row);
         });
         var br = box.getBoundingClientRect(); tip.classList.add('on');
@@ -2704,6 +2755,8 @@
       });
       host.addEventListener('pointerleave', hide);
       box.addEventListener('click', function (e) {
+        var md = e.target.closest('[data-accmode] button');
+        if (md) { accMode = md.getAttribute('data-m'); try { localStorage.setItem('trainer-acc-mode', accMode); } catch (err) {} renderAcc(); return; }
         var w = e.target.closest('[data-accwin] button');
         if (w) { accWin = +w.getAttribute('data-w'); try { localStorage.setItem('trainer-acc-win', accWin); } catch (err) {} renderAcc(); return; }
         var l = e.target.closest('[data-accline]');
@@ -3030,7 +3083,8 @@
   function renderStats() {
     renderUnits(); renderTC(); renderAcc(); renderHistory();
     document.getElementById('sAcc').textContent = pct(stats.correct, stats.decisions);
-    document.getElementById('sAccSub').textContent = stats.correct + ' / ' + stats.decisions + ' decisions';
+    var tmv = (stats.tm || []).slice(-50), tavg = tmv.length ? tmv.reduce(function (a, v) { return a + (v & 1023); }, 0) / tmv.length / 100 : null;
+    document.getElementById('sAccSub').textContent = stats.correct + ' / ' + stats.decisions + ' decisions' + (tavg != null ? ' · ' + tavg.toFixed(1) + 's avg' : '');
     document.getElementById('sQuiz').textContent = pct(stats.quizCorrect, stats.quizzes);
     var qs = [];
     if (stats.rcQ) qs.push('RC ' + pct(stats.rcCorrect, stats.rcQ));
