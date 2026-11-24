@@ -435,7 +435,7 @@
   .graph-btn:hover { border-color: var(--accent); }
   .graph-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .acc-win { flex: 1; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
-  .acc-win .tabs { margin: 0; width: 150px; }
+  .acc-win .tabs { margin: 0; width: 260px; }
   .tc-key { flex: 1; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--ink-soft); padding-top: 4px; }
   .tc-key i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
   .tc-key .k-tc { background: var(--series-1); }
@@ -908,11 +908,11 @@
 <div class="units-modal" id="accModal" role="dialog" aria-modal="true" aria-labelledby="accTitle">
   <div class="box units-body" id="accBig">
     <div class="head"><h2 id="accTitle">Accuracy trend</h2><span data-sub></span><button type="button" class="units-expand" id="accClose">Close ✕</button></div>
-    <div class="units-tools"><div class="acc-win">Rolling <span class="tabs" data-accwin><button type="button" data-w="20">20</button><button type="button" data-w="50">50</button><button type="button" data-w="100">100</button></span></div></div>
+    <div class="units-tools"><div class="acc-win">Rolling <span class="tabs" data-accwin><button type="button" data-w="20">20</button><button type="button" data-w="50">50</button><button type="button" data-w="100">100</button><button type="button" data-w="0">Cumulative</button></span></div></div>
     <div class="units-legend acc-legend" data-legend></div>
     <div class="units-chart" data-chart role="img" aria-label="Rolling accuracy"></div>
     <div class="units-tip" data-tip role="status"></div>
-    <div class="note">Each line is your accuracy over your last 20 / 50 / 100 results of that kind, plotted at the hand where each result happened; a line starts once it has that many results. Plays = playing decisions (incl. insurance, and index plays when deviation grading is on); Bets = within tolerance of the ramp; Count = count-quiz answers (incl. the end-of-shoe check). Click a legend item to hide a line. Esc closes.</div>
+    <div class="note">Each line is your accuracy over your last 20 / 50 / 100 results of that kind, or Cumulative (all results up to that hand), plotted at the hand where each result happened; a line starts once it has that many results (20 for Cumulative). Plays = playing decisions (incl. insurance, and index plays when deviation grading is on); Bets = within tolerance of the ramp; Count = count-quiz answers (incl. the end-of-shoe check). Click a legend item to hide a line. Esc closes.</div>
   </div>
 </div>
 
@@ -2551,8 +2551,13 @@
     { key: 'quiz', name: 'Count', color: 'var(--series-3)', dash: '2 3' }
   ];
   var accWin = 20, accOn = { play: true, bet: true, quiz: true };
-  try { accWin = +localStorage.getItem('trainer-acc-win') || 20; Object.assign(accOn, JSON.parse(localStorage.getItem('trainer-acc-lines') || '{}')); } catch (e) {}
+  try { var aw = localStorage.getItem('trainer-acc-win'); accWin = [0, 20, 50, 100].indexOf(+aw) >= 0 && aw !== null ? +aw : 20; Object.assign(accOn, JSON.parse(localStorage.getItem('trainer-acc-lines') || '{}')); } catch (e) {}
   var accState = {};
+  function accCumulative(arr, MIN) {                // running lifetime accuracy, from the MIN-th result on
+    var out = [], sum = 0;
+    for (var i = 0; i < arr.length; i++) { sum += arr[i] & 1; if (i >= MIN - 1) out.push({ h: arr[i] >> 1, v: sum / (i + 1), raw: sum / (i + 1) }); }
+    return out;
+  }
   function accRolling(arr, N) {                    // -> [{h, v}] one point per result once N results exist
     var out = [], sum = 0;
     for (var i = 0; i < arr.length; i++) {
@@ -2594,12 +2599,12 @@
   }
   function drawAcc(box) {
     var host = box.querySelector('[data-chart]'), legend = box.querySelector('[data-legend]');
-    var A = stats.acc || {}, N = accWin, big = box.id === 'accBig';
-    Array.prototype.forEach.call(box.querySelectorAll('[data-accwin] button'), function (b) { b.classList.toggle('on', +b.getAttribute('data-w') === N); });
+    var A = stats.acc || {}, cum = accWin === 0, N = cum ? 20 : accWin, big = box.id === 'accBig';
+    Array.prototype.forEach.call(box.querySelectorAll('[data-accwin] button'), function (b) { b.classList.toggle('on', +b.getAttribute('data-w') === accWin); });
     var series = ACC.map(function (sr) {
       var arr = A[sr.key] || [];
       var tot = arr.length, right = 0; for (var i = 0; i < tot; i++) right += arr[i] & 1;
-      return { sr: sr, pts: accSmooth(accRolling(arr, N), Math.max(2, Math.round(N / 4))), n: tot, life: tot ? right / tot : null };
+      return { sr: sr, pts: cum ? accCumulative(arr, N) : accSmooth(accRolling(arr, N), Math.max(2, Math.round(N / 4))), n: tot, life: tot ? right / tot : null };
     });
     legend.innerHTML = series.map(function (S) {
       var last = S.pts.length ? Math.round(S.pts[S.pts.length - 1].raw * 100) + '%' : (S.n ? S.n + '/' + N : '—');
@@ -2609,7 +2614,7 @@
     }).join('');
     var shown = series.filter(function (S) { return accOn[S.sr.key] && S.pts.length >= 2; });
     if (!shown.length) {
-      host.innerHTML = '<div class="units-empty">' + (series.some(function (S) { return S.pts.length; }) ? 'Turn a line back on in the legend.' : 'Needs at least ' + N + ' results of a kind (plays, bets or quiz answers) to draw a rolling line.') + '</div>';
+      host.innerHTML = '<div class="units-empty">' + (series.some(function (S) { return S.pts.length; }) ? 'Turn a line back on in the legend.' : 'Needs at least ' + N + ' results of a kind (plays, bets or quiz answers) to draw a line.') + '</div>';
       accState[box.id] = null; return;
     }
     var h0 = Infinity, h1 = -Infinity;
@@ -2643,7 +2648,7 @@
     svg += '<g class="hov" style="display:none"><line class="hair" y1="' + padT + '" y2="' + (H - padB) + '"/>' +
       shown.map(function (S) { return '<circle class="hdot" r="4" data-k="' + S.sr.key + '" fill="' + S.sr.color + '"/>'; }).join('') + '</g></svg>';
     host.innerHTML = svg;
-    host.setAttribute('aria-label', 'Rolling ' + N + ' accuracy: ' + shown.map(function (S) { return S.sr.name + ' ' + Math.round(S.pts[S.pts.length - 1].v * 100) + '%'; }).join(', '));
+    host.setAttribute('aria-label', (cum ? 'Cumulative' : 'Rolling ' + N) + ' accuracy: ' + shown.map(function (S) { return S.sr.name + ' ' + Math.round(S.pts[S.pts.length - 1].v * 100) + '%'; }).join(', '));
     accState[box.id] = { shown: shown, x: x, y: y, h0: h0, h1: h1, W: W, padL: padL, padR: padR };
   }
   function renderAcc() {
@@ -2664,7 +2669,7 @@
         H = Math.max(st.h0, Math.min(st.h1, H));
         var g = host.querySelector('.hov'); if (!g) return;
         g.style.display = ''; g.querySelector('.hair').setAttribute('x1', st.x(H)); g.querySelector('.hair').setAttribute('x2', st.x(H));
-        tip.innerHTML = ''; var head = document.createElement('div'); head.textContent = 'Hand ' + H + ' · last ' + accWin; tip.appendChild(head);
+        tip.innerHTML = ''; var head = document.createElement('div'); head.textContent = 'Hand ' + H + (accWin ? ' · last ' + accWin : ' · cumulative'); tip.appendChild(head);
         st.shown.forEach(function (S) {
           var pt = null; for (var i = S.pts.length - 1; i >= 0; i--) if (S.pts[i].h <= H) { pt = S.pts[i]; break; }
           var dot = g.querySelector('[data-k="' + S.sr.key + '"]');
