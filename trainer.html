@@ -282,6 +282,16 @@
     font: 800 18px/1 var(--sans); letter-spacing: .02em; cursor: pointer; box-shadow: 0 8px 24px rgba(0,0,0,.35);
   }
   .start-ov h3 { margin: 0; color: #f7e7b8; font-size: 18px; }
+  .shoe-sum { display: flex; gap: 10px; }
+  .start-ov.sum { background: rgba(6,24,15,.86); }
+  .shoe-sum[hidden] { display: none; }
+  .ss-cell { display: flex; flex-direction: column; align-items: center; min-width: 88px; padding: 8px 10px; border-radius: 10px; background: rgba(4,20,12,.92); color: rgba(238,245,239,.85); }
+  .ss-cell b { font-size: 22px; color: #eef5ef; font-variant-numeric: tabular-nums; }
+  .ss-cell b.good { color: #8fe3a8; } .ss-cell b.bad { color: #ffa38f; }
+  .ss-cell span { font-size: 12px; font-weight: 700; } .ss-cell small { font-size: 11px; opacity: .75; }
+  .retry-btn { border: 1px solid rgba(247,231,184,.6); background: transparent; color: #f7e7b8; border-radius: 999px; padding: 8px 18px; font: 700 14px/1 var(--sans); cursor: pointer; }
+  .retry-btn:hover { background: rgba(247,231,184,.1); }
+  .retry-btn[hidden] { display: none; }
   .start-btn:hover { filter: brightness(1.06); }
   .start-btn:focus-visible { outline: 3px solid #f7e7b8; outline-offset: 3px; }
   .quiz-box {
@@ -724,7 +734,9 @@
         </div>
         <div class="start-ov" id="startOv">
           <h3 id="startTitle"></h3>
+          <div class="shoe-sum" id="shoeSum" hidden></div>
           <button class="start-btn" id="startBtn" type="button">Start</button>
+          <button class="retry-btn" id="retryBtn" type="button" hidden>Retry mistakes</button>
           <p id="startMsg">Fresh shoe, running count 0. Press Start (or Space) when you're ready for the first hand.</p>
         </div>
         <div class="g-toast" id="gToast"></div>
@@ -1392,8 +1404,25 @@
 
   // ---------- Grading ----------
   var lastFeedback = null;
-  function grade(kind, cards, u, chosen, correct) {
+  // ---------- Per-shoe record (summary + retry at the end of each shoe) ----------
+  var shoeRec = freshShoeRec(), lastMisses = [];
+  function freshShoeRec() { return { plays: 0, playOk: 0, idx: 0, idxOk: 0, quiz: 0, quizOk: 0, miss: [] }; }
+  function isIndexSpot(cards, u, legal) {          // a spot with an index play in either direction
+    var b = basicPlay(cards, u, legal).action;
+    return [99, -99].some(function (t) { var d = devPlay(cards, u, legal, t); return d && d.action !== b; });
+  }
+  function grade(kind, cards, u, chosen, correct, legal) {
     var ok = chosen === correct.action;
+    var idxSpot = settings.devs && (kind === 'ins' || (legal && isIndexSpot(cards, u, legal)));
+    shoeRec.plays++; if (ok) shoeRec.playOk++;
+    if (idxSpot) { shoeRec.idx++; if (ok) shoeRec.idxOk++; }
+    if (!ok) {
+      var me = mySeat(), cs = kind === 'ins' ? (me ? me.hands[0].cards : []) : cards;
+      var tc1 = Math.round(trueCount() * 10) / 10;
+      shoeRec.miss.push({ ins: kind === 'ins', up: u, cards: cs.map(function (c) { return { r: c.r, s: c.s }; }), legal: kind === 'ins' ? ['I', 'N'] : legal.slice(),
+        tc: tc1, right: correct.action, you: chosen,
+        why: correct.dev ? correct.dev + (kind === 'ins' ? '' : ' (basic: ' + ACT_NAME[correct.basic] + ')') : kind === 'ins' ? 'Insurance only at TC ≥ +3' : 'Basic strategy: ' + ctxLabel(cards, u) + ' → ' + ACT_NAME[correct.action] + (idxSpot ? ' (the index isn\'t reached at TC ' + (tc1 > 0 ? '+' : '') + tc1.toFixed(1) + ')' : '') });
+    }
     if (curLog) curLog.plays.push({ ctx: kind === 'ins' ? 'Insurance' : ctxLabel(cards, u), you: chosen, right: correct.action, ok: ok, dev: !!correct.dev,
       cost: Math.round(misplayCost(kind, cards, u, chosen, correct.action) * 1000) / 1000 });
     stats.decisions++;
@@ -1460,8 +1489,20 @@
     return L;
   }
 
-  async function waitStart(title, msg) {
+  async function waitStart(title, msg, rec) {
     var ov = document.getElementById('startOv');
+    var sum = document.getElementById('shoeSum'), rb = document.getElementById('retryBtn');
+    if (rec && rec.plays + rec.quiz > 0) {
+      var cell = function (k, ok, n, off) {
+        var p = n ? Math.round(ok / n * 100) : null;
+        return '<div class="ss-cell"><b class="' + (p == null ? '' : p >= 90 ? 'good' : p >= 75 ? '' : 'bad') + '">' + (off ? 'off' : p == null ? '—' : p + '%') + '</b><span>' + k + '</span><small>' + (off ? 'index plays off' : ok + ' / ' + n) + '</small></div>';
+      };
+      sum.innerHTML = cell('Count', rec.quizOk, rec.quiz) + cell('Plays', rec.playOk, rec.plays) + cell('Index plays', rec.idxOk, rec.idx, !settings.devs);
+      sum.hidden = false; ov.classList.add('sum');
+      lastMisses = rec.miss;
+      rb.hidden = !rec.miss.length;
+      rb.textContent = 'Retry ' + rec.miss.length + ' mistake' + (rec.miss.length === 1 ? '' : 's');
+    } else { sum.hidden = true; rb.hidden = true; ov.classList.remove('sum'); }
     document.getElementById('startTitle').textContent = title || '';
     document.getElementById('startTitle').style.display = title ? '' : 'none';
     document.getElementById('startMsg').textContent = msg;
@@ -1648,11 +1689,12 @@
         await step(1);
         await runQuiz({ final: true });
       }
+      var done = shoeRec; shoeRec = freshShoeRec();
       setupSeats(); render();
       banner('Shuffling…');
       buildShoe(); stats.shoes++; betUnits = 1; save(); renderStats(); renderMeters();
       await step(1.5);
-      await waitStart('New shoe', 'The shoe has been reshuffled — running count resets to 0. Press Start (or Space) when you\'re ready.');
+      await waitStart('Shoe complete', 'Reshuffled — running count resets to 0. Press Start (or Space) when you\'re ready.', done);
     }
     setupSeats(); roundOver = false; activeHand = null;
     banner(''); render();
@@ -1748,7 +1790,7 @@
         }
         banner('');
         gctx = { bet: hand.bet };
-        grade('play', hand.cards, up, a, correct);
+        grade('play', hand.cards, up, a, correct, legal);
       } else {
         await step(1.1);
         a = correct.action;
@@ -1910,6 +1952,7 @@
         var good = okRC && okTC;
         stats.quizzes++; if (good) stats.quizCorrect++;
         accPush('quiz', stats.hands, good);
+        shoeRec.quiz++; if (good) shoeRec.quizOk++;
         if (askRC) { stats.rcQ++; if (okRC) stats.rcCorrect++; stats.quizErr += Math.abs(rcAns - rc); }
         if (askTC) { stats.tcQ = (stats.tcQ || 0) + 1; if (okTC) stats.tcCorrect = (stats.tcCorrect || 0) + 1; }
         stats.quizLog.unshift({ rcAns: rcAns, tcAns: tcAns, exact: Math.round(exact * 10) / 10, rc: rc, ok: good, decks: Math.round(dl * 10) / 10 });
@@ -2269,8 +2312,8 @@
   }
   // ---------- Drills: practice only, never touches stats ----------
   (function () {
-    var D = { kind: null, n: 20, i: 0, score: 0, misses: [], q: null, answered: false };
-    var NAMES = { dev: 'Deviations', soft: 'Soft totals', dbl: 'Doubles' };
+    var D = { kind: null, n: 20, sel: 20, list: [], i: 0, score: 0, misses: [], q: null, answered: false };
+    var NAMES = { dev: 'Deviations', soft: 'Soft totals', dbl: 'Doubles', retry: 'Retry this shoe\'s mistakes' };
     var TENS = ['10', 'J', 'Q', 'K'];
     var ri = function (n) { return Math.floor(Math.random() * n); };
     var pick = function (a) { return a[ri(a.length)]; };
@@ -2298,6 +2341,7 @@
       return L;
     }
     function makeQ() {
+      if (D.kind === 'retry') return D.list[D.i];
       if (D.kind === 'dev') {
         if (Math.random() < 1 / 20) {               // insurance
           var tcI = Math.round((3 + (Math.random() * 5 - 2.5)) * 10) / 10;
@@ -2342,7 +2386,7 @@
       var acts = document.getElementById('drillActs');
       acts.className = 'acts drill-acts' + (q.ins ? ' n2' : '');
       acts.innerHTML = keys.map(function (k) { return '<button class="act" type="button" data-a="' + k + '"' + (q.legal.indexOf(k) < 0 ? ' disabled' : '') + '>' + BTN[k] + '<kbd>' + k + '</kbd></button>'; }).join('');
-      var fb = document.getElementById('drillFb'); fb.className = 'feedback'; fb.innerHTML = '<span class="ic">?</span><span>' + (D.kind === 'dev' ? 'Use the true count shown.' : 'Basic strategy (dealer hits soft 17, late surrender).') + '</span>';
+      var fb = document.getElementById('drillFb'); fb.className = 'feedback'; fb.innerHTML = '<span class="ic">?</span><span>' + (q.tc != null ? 'Use the true count shown.' : 'Basic strategy (dealer hits soft 17, late surrender).') + '</span>';
       document.getElementById('drillNext').hidden = true;
     }
     function answer(a) {
@@ -2373,6 +2417,7 @@
     }
     function start(kind) {
       D.kind = kind; D.i = 0; D.score = 0; D.misses = [];
+      D.n = kind === 'retry' ? D.list.length : D.sel;
       document.getElementById('drillPick').hidden = true; document.getElementById('drillEnd').hidden = true; document.getElementById('drillPlay').hidden = false;
       showQ();
     }
@@ -2387,15 +2432,21 @@
       modal.classList.remove('on'); D.q = null;
       if (pausedByDrill && paused) document.getElementById('pauseBtn').click();
       pausedByDrill = false;
-      document.getElementById('drillBtn').focus();
+      var rb = document.getElementById('retryBtn');
+      (D.kind === 'retry' && !rb.hidden && rb.offsetParent ? rb : document.getElementById('drillBtn')).focus();
     }
     document.getElementById('drillBtn').addEventListener('click', open);
+    document.getElementById('retryBtn').addEventListener('click', function () {
+      if (!lastMisses.length) return;
+      D.list = lastMisses.map(function (m) { return { ins: m.ins, up: m.up, cards: m.cards, tc: m.tc, legal: m.legal, right: m.right, why: m.why }; });
+      open(); start('retry');
+    });
     document.getElementById('drillClose').addEventListener('click', close);
     modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
     modal.querySelector('.drill-cards').addEventListener('click', function (e) { var b = e.target.closest('[data-drill]'); if (b) start(b.getAttribute('data-drill')); });
     document.getElementById('drillLen').addEventListener('click', function (e) {
       var b = e.target.closest('button[data-n]'); if (!b) return;
-      D.n = +b.getAttribute('data-n');
+      D.sel = D.n = +b.getAttribute('data-n');
       Array.prototype.forEach.call(this.children, function (x) { x.classList.toggle('on', x === b); });
     });
     document.getElementById('drillActs').addEventListener('click', function (e) { var b = e.target.closest('button[data-a]'); if (b) answer(b.getAttribute('data-a')); });
@@ -3179,7 +3230,7 @@
     if (reviewTab === 'mist') {
       if (stats.mistakes.length) h = '<div class="list-count">' + stats.mistakes.length + ' mistake' + (stats.mistakes.length === 1 ? '' : 's') + ', newest first</div>';
       h += stats.mistakes.map(function (m) {
-        return '<div class="item"><span class="l">' + esc(m.ctx) + '</span><span class="r">' + esc(m.you) + ' → <b>' + esc(m.right) + '</b>' + (m.dev ? ' ·idx' : '') + '</span></div>';
+        return '<div class="item"><span class="l">' + esc(m.ctx) + (m.tc != null ? ' · TC ' + (m.tc > 0 ? '+' : '') + m.tc : '') + '</span><span class="r">' + esc(m.you) + ' → <b>' + esc(m.right) + '</b>' + (m.dev ? ' ·idx' : '') + '</span></div>';
       }).join('') || '<div class="empty">No mistakes yet. Keep it that way.</div>';
     } else if (reviewTab === 'leaks') {
       var seen = stats.seen || {};
