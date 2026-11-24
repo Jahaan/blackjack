@@ -539,7 +539,16 @@
   .stat .v { font-size: 22px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1.2; }
   .stat .sub { font-size: 11.5px; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
   .cat-rows { margin-top: 12px; display: flex; flex-direction: column; gap: 7px; }
-  .cat-row { display: grid; grid-template-columns: 64px 1fr 74px; gap: 8px; align-items: center; font-size: 12.5px; }
+  .cat-row { display: grid; grid-template-columns: 64px 1fr 66px 44px; gap: 8px; align-items: center; font-size: 12.5px; width: 100%;
+    background: none; border: none; border-radius: 6px; padding: 2px 4px; margin: 0 -4px; color: inherit; font-family: inherit; cursor: pointer; text-align: left; }
+  .cat-row:hover { background: var(--panel-2); }
+  .cat-row:focus-visible { outline: 2px solid var(--accent); }
+  .cat-row .miss { text-align: right; font-size: 11.5px; font-weight: 700; color: var(--lose); white-space: nowrap; }
+  .cat-row .miss.none { color: var(--ink-faint); font-weight: 500; }
+  .miss-modal .box { width: min(760px, 100%); }
+  .miss-modal h4 { margin: 12px 0 6px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-faint); }
+  .miss-modal .list { max-height: none; }
+  .miss-modal .item .r b { color: var(--ink); }
   .cat-row .nm { color: var(--ink-soft); font-weight: 600; }
   .cat-row .track { height: 7px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); overflow: hidden; }
   .cat-row .track i { display: block; height: 100%; background: var(--win); border-radius: 999px; }
@@ -902,6 +911,13 @@
     <div class="units-tip" data-tip role="status"></div>
     <div class="tc-stats sim-stats" id="simStats"></div>
     <div class="note">Plays basic strategy perfectly (plus the Illustrious 18 / Fab 4 index plays when "Grade count deviations" is on) and always bets the ramp for your spread, using your current table settings. It runs on its own shoe and never touches your stats, history or current game. Expected = ramp bet × edge at the true count (measured from 600M simulated hands of basic strategy: about −0.52% at TC 0, rising ~0.55% per TC); with index plays on it uses a separate table measured with the Illustrious 18 / Fab 4 and insurance at +3. The shaded bands show where results land about 68% and 95% of the time around expected.</div>
+  </div>
+</div>
+
+<div class="units-modal miss-modal" id="missModal" role="dialog" aria-modal="true" aria-labelledby="missTitle">
+  <div class="box">
+    <div class="head"><h2 id="missTitle">Misses</h2><span id="missSub"></span><button type="button" class="units-expand" id="missClose">Close ✕</button></div>
+    <div id="missBody"></div>
   </div>
 </div>
 
@@ -1364,7 +1380,7 @@
     else {
       stats.streak = 0;
       var ctx = kind === 'ins' ? 'Insurance vs A' : ctxLabel(cards, u);
-      stats.mistakes.unshift({ ctx: ctx, you: ACT_NAME[chosen], right: ACT_NAME[correct.action], dev: !!correct.dev });
+      stats.mistakes.unshift({ ctx: ctx, you: ACT_NAME[chosen], right: ACT_NAME[correct.action], dev: !!correct.dev, cat: cat, hand: stats.hands + 1, tc: Math.round(trueCount() * 10) / 10 });
       stats.leaks[ctx] = (stats.leaks[ctx] || 0) + 1;
     }
     var tcStr = fmtTC(trueCount());
@@ -3029,10 +3045,66 @@
     document.getElementById('catRows').innerHTML = cats.filter(function (c) { return c[0] !== 'dev' || settings.devs || stats.cats.dev[1]; }).map(function (c) {
       var v = stats.cats[c[0]];
       var p = v[1] ? v[0] / v[1] * 100 : 0;
-      return '<div class="cat-row"><span class="nm">' + c[1] + '</span><span class="track"><i style="width:' + p + '%"></i></span><span class="pct">' + (v[1] ? Math.round(p) + '% · ' + v[1] : '—') + '</span></div>';
+      var miss = v[1] - v[0];
+      return '<button type="button" class="cat-row" data-misscat="' + c[0] + '" aria-label="' + c[1] + ' misses"><span class="nm">' + c[1] + '</span><span class="track"><i style="width:' + p + '%"></i></span>' +
+        '<span class="pct">' + (v[1] ? Math.round(p) + '% · ' + v[1] : '—') + '</span><span class="miss' + (miss ? '' : ' none') + '">' + (miss ? miss + ' ✗ ›' : '✓') + '</span></button>';
     }).join('');
     renderReview();
   }
+  // Misses by category (Session box rows)
+  var CAT_NAME = { hard: 'Hard totals', soft: 'Soft totals', pair: 'Pairs', ins: 'Insurance', bet: 'Bet size', dev: 'Index plays' };
+  function missCat(m) {                              // older entries have no category saved: infer it
+    if (m.cat) return m.cat;
+    if (m.dev) return 'dev';
+    if (/^Insurance/.test(m.ctx)) return 'ins';
+    if (/^Hard /.test(m.ctx)) return 'hard';
+    if (/^Soft /.test(m.ctx)) return 'soft';
+    if (/^[^ ]+,[^ ]+ vs /.test(m.ctx)) return 'pair';
+    return 'hard';
+  }
+  function showMisses(cat) {
+    var v = stats.cats[cat] || [0, 0], body = '', sub = CAT_NAME[cat] + ' · ' + (v[1] ? Math.round(v[0] / v[1] * 100) + '% right · ' + (v[1] - v[0]) + ' missed of ' + v[1] : 'no hands yet');
+    if (cat === 'bet') {
+      var bm = (stats.handLog || []).filter(function (h) { return h.betOk === false; }).reverse();
+      body = bm.length
+        ? '<div class="hint">From your hand history (last 1,000 hands). Bet sizing is graded within ±1 unit of the ramp (±2 from TC +5).</div><div class="list">' + bm.map(function (h) {
+            return '<div class="item"><span class="l">Hand ' + h.n + ' · TC ' + (h.tc > 0 ? '+' : '') + h.tc + '</span><span class="r">you bet ' + h.bet + 'u · ramp <b>' + h.ramp + 'u</b></span></div>';
+          }).join('') + '</div>'
+        : '<div class="list"><div class="empty">No bet-size misses in your hand history.</div></div>';
+    } else {
+      var ms = (stats.mistakes || []).filter(function (m) { return missCat(m) === cat; });
+      var seen = stats.seen || {}, by = {};
+      ms.forEach(function (m) { var k = m.ctx; (by[k] = by[k] || { n: 0, right: m.right, you: {} }).n++; by[k].you[m.you] = (by[k].you[m.you] || 0) + 1; });
+      var spots = Object.keys(by).sort(function (a, b) { return by[b].n - by[a].n; });
+      if (!ms.length) body = '<div class="list"><div class="empty">' + (v[1] ? 'No misses here. Nice.' : 'No hands in this category yet.') + '</div></div>';
+      else {
+        body = '<h4>By spot (' + spots.length + ')</h4><div class="list">' + spots.map(function (k) {
+          var o = by[k], sn = seen[k], rate = sn >= o.n ? ' of ' + sn + ' (' + Math.round(o.n / sn * 100) + '%)' : '×';
+          var yours = Object.keys(o.you).map(function (y) { return y + (o.you[y] > 1 ? ' ×' + o.you[y] : ''); }).join(', ');
+          return '<div class="item"><span class="l">' + esc(k) + '</span><span class="r">missed ' + o.n + rate + ' · you: ' + esc(yours) + ' · right: <b>' + esc(o.right) + '</b></span></div>';
+        }).join('') + '</div>' +
+        '<h4>Recent misses</h4><div class="list">' + ms.slice(0, 50).map(function (m) {
+          return '<div class="item"><span class="l">' + esc(m.ctx) + (m.tc != null ? ' · TC ' + (m.tc > 0 ? '+' : '') + m.tc : '') + (m.hand ? ' · hand ' + m.hand : '') + '</span><span class="r">' + esc(m.you) + ' → <b>' + esc(m.right) + '</b></span></div>';
+        }).join('') + (ms.length > 50 ? '<div class="empty">Showing the latest 50 of ' + ms.length + '.</div>' : '') + '</div>';
+      }
+    }
+    document.getElementById('missTitle').textContent = CAT_NAME[cat] + ' · misses';
+    document.getElementById('missSub').textContent = sub;
+    document.getElementById('missBody').innerHTML = body;
+    document.getElementById('missModal').classList.add('on');
+    document.getElementById('missClose').focus();
+  }
+  (function () {
+    var m = document.getElementById('missModal'), opener = null;
+    document.getElementById('catRows').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-misscat]'); if (!b) return;
+      opener = b.getAttribute('data-misscat'); showMisses(opener);
+    });
+    function close() { m.classList.remove('on'); var b = opener && document.querySelector('[data-misscat="' + opener + '"]'); if (b) b.focus(); }
+    document.getElementById('missClose').addEventListener('click', close);
+    m.addEventListener('click', function (e) { if (e.target === m) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && m.classList.contains('on')) { e.stopPropagation(); close(); } }, true);
+  })();
   var reviewTab = 'mist';
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function renderReview() {
