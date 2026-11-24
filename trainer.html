@@ -343,6 +343,7 @@
     background: var(--panel-2); border: 1px solid var(--line); color: var(--ink-soft);
     display: flex; gap: 10px; align-items: flex-start;
   }
+  body.fb-off #feedback { display: none; }
   .feedback.good { background: var(--win-bg); border-color: transparent; color: var(--ink); }
   .feedback.bad { background: var(--lose-bg); border-color: transparent; color: var(--ink); }
   .feedback .ic { font-weight: 900; font-size: 16px; line-height: 1.3; }
@@ -746,6 +747,7 @@
           <button class="chip-btn" id="shuffleBtn" type="button">New shoe</button>
           <button class="chip-btn" id="quizNowBtn" type="button">Quiz me next hand</button>
           <button class="chip-btn" id="totalsBtn" type="button" aria-pressed="false">Hide totals</button>
+          <button class="chip-btn" id="fbBtn" type="button">Feedback: all</button>
           <button class="chip-btn" id="simBtn" type="button">Simulate perfect play</button>
           <button class="chip-btn" id="drillBtn" type="button">Drills</button>
         </div>
@@ -830,6 +832,8 @@
         <div class="set-row"><label for="setBetting">Bet by the count (graded)</label><span class="switch"><input type="checkbox" id="setBetting"><span></span></span></div>
         <div class="set-row"><label for="setSpread">Bet spread</label>
           <select id="setSpread"><option value="4">1–4 units</option><option value="8">1–8 units</option><option value="12">1–12 units</option></select></div>
+        <div class="set-row"><label for="setFeedback">Play feedback under the table</label>
+          <select id="setFeedback"><option value="all">All (✓ and ✗)</option><option value="miss">Mistakes only</option><option value="off">Off</option></select></div>
         <div class="set-row"><label for="setHideTotals">Hide hand totals (real-table mode)</label><span class="switch"><input type="checkbox" id="setHideTotals"><span></span></span></div>
         <div class="set-row"><label for="setButtons">Show action buttons too</label><span class="switch"><input type="checkbox" id="setButtons"><span></span></span></div>
         <div class="set-row"><label for="setShow">Show count (training wheels)</label><span class="switch"><input type="checkbox" id="setShow"><span></span></span></div>
@@ -999,7 +1003,7 @@
     }
   }
 
-  var DEFAULT_SETTINGS = { decks: 6, pen: 0.75, bots: 2, seat: 'middle', speed: 'normal', auto: true, quiz: '4-7', quizType: 'rc', devs: false, show: false, buttons: false, hideTotals: false, betting: true, spread: 8 };
+  var DEFAULT_SETTINGS = { decks: 6, pen: 0.75, bots: 2, seat: 'middle', speed: 'normal', auto: true, quiz: '4-7', quizType: 'rc', devs: false, show: false, buttons: false, hideTotals: false, betting: true, spread: 8, feedback: 'all' };
   function freshStats() {
     return { hands: 0, decisions: 0, correct: 0, cats: { hard: [0, 0], soft: [0, 0], pair: [0, 0], ins: [0, 0], dev: [0, 0], bet: [0, 0] },
       quizzes: 0, quizCorrect: 0, quizErr: 0, rcQ: 0, rcCorrect: 0, tcQ: 0, tcCorrect: 0, net: 0, streak: 0, best: 0, shoes: 1,
@@ -1373,8 +1377,21 @@
       html = 'You chose <b>' + ACT_NAME[chosen] + '</b>. ' + ctxS + ': ' + (correct.dev ? 'at TC ' + tcStr + ' the play is ' : 'basic strategy says ') + '<b>' + ACT_NAME[correct.action] + '</b>.' +
         (correct.dev ? '<span class="dev">' + correct.dev + ' (basic: ' + ACT_NAME[correct.basic] + ')</span>' : '');
     }
-    setFeedback(ok ? 'good' : 'bad', ok ? '✓' : '✗', html);
+    if (settings.feedback === 'all' || (settings.feedback === 'miss' && !ok)) setFeedback(ok ? 'good' : 'bad', ok ? '✓' : '✗', html);
+    else if (settings.feedback === 'miss') clearFeedback();          // don't leave an old ✗ showing after a correct play
     save(); renderStats();
+  }
+  function clearFeedback() {
+    var el = document.getElementById('feedback');
+    el.className = 'feedback'; el.innerHTML = '<span class="ic">♠</span><span>Mistakes will show here.</span>';
+  }
+  function applyFeedbackMode() {
+    document.body.classList.toggle('fb-off', settings.feedback === 'off');
+    var b = document.getElementById('fbBtn');
+    b.textContent = 'Feedback: ' + ({ all: 'all', miss: 'mistakes', off: 'off' })[settings.feedback];
+    b.classList.toggle('on', settings.feedback !== 'all');
+    document.getElementById('setFeedback').value = settings.feedback;
+    if (settings.feedback === 'miss' && !/bad/.test(document.getElementById('feedback').className)) clearFeedback();
   }
   function setFeedback(cls, ic, html) {
     var el = document.getElementById('feedback');
@@ -1576,7 +1593,7 @@
     accPush('bet', stats.hands + 1, ok);
     lastBetOk = ok;
     var u = function (n) { return n + (n === 1 ? ' unit' : ' units'); };
-    if (!ok) setFeedback('bad', '✗', 'You bet <b>' + u(betUnits) + '</b>. True count was ' + fmtTC(tc) + ', so the ramp says <b>' + u(right) + '</b> (TC − 1, min 1, max ' + settings.spread + ').');
+    if (!ok && settings.feedback !== 'off') setFeedback('bad', '✗', 'You bet <b>' + u(betUnits) + '</b>. True count was ' + fmtTC(tc) + ', so the ramp says <b>' + u(right) + '</b> (TC − 1, min 1, max ' + settings.spread + ').');
     save(); renderStats();
   }
 
@@ -3107,6 +3124,13 @@
   bindSwitch('setShow', 'show');
   bindSwitch('setButtons', 'buttons');
   bindSwitch('setHideTotals', 'hideTotals');
+  bindSelect('setFeedback', 'feedback');
+  document.getElementById('setFeedback').addEventListener('change', applyFeedbackMode);
+  document.getElementById('fbBtn').addEventListener('click', function () {
+    settings.feedback = { all: 'miss', miss: 'off', off: 'all' }[settings.feedback] || 'all';
+    save(); applyFeedbackMode();
+  });
+  applyFeedbackMode();
   bindSwitch('setBetting', 'betting');
   bindSelect('setSpread', 'spread', Number);
   function syncTotalsBtn() {
