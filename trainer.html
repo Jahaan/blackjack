@@ -282,10 +282,10 @@
     font: 800 18px/1 var(--sans); letter-spacing: .02em; cursor: pointer; box-shadow: 0 8px 24px rgba(0,0,0,.35);
   }
   .start-ov h3 { margin: 0; color: #f7e7b8; font-size: 18px; }
-  .shoe-sum { display: flex; gap: 10px; }
+  .shoe-sum { display: flex; gap: 8px; width: 100%; max-width: 460px; }
   .start-ov.sum { background: rgba(6,24,15,.86); }
   .shoe-sum[hidden] { display: none; }
-  .ss-cell { display: flex; flex-direction: column; align-items: center; min-width: 88px; padding: 8px 10px; border-radius: 10px; background: rgba(4,20,12,.92); color: rgba(238,245,239,.85); }
+  .ss-cell { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 0; padding: 8px 4px; border-radius: 10px; background: rgba(4,20,12,.92); color: rgba(238,245,239,.85); }
   .ss-cell b { font-size: 22px; color: #eef5ef; font-variant-numeric: tabular-nums; }
   .ss-cell b.good { color: #8fe3a8; } .ss-cell b.bad { color: #ffa38f; }
   .ss-cell span { font-size: 12px; font-weight: 700; } .ss-cell small { font-size: 11px; opacity: .75; }
@@ -1406,7 +1406,7 @@
   var lastFeedback = null;
   // ---------- Per-shoe record (summary + retry at the end of each shoe) ----------
   var shoeRec = freshShoeRec(), lastMisses = [];
-  function freshShoeRec() { return { plays: 0, playOk: 0, idx: 0, idxOk: 0, quiz: 0, quizOk: 0, miss: [] }; }
+  function freshShoeRec() { return { bet: 0, betOk: 0, plays: 0, playOk: 0, idx: 0, idxOk: 0, quiz: 0, quizOk: 0, miss: [] }; }
   function isIndexSpot(cards, u, legal) {          // a spot with an index play in either direction
     var b = basicPlay(cards, u, legal).action;
     return [99, -99].some(function (t) { var d = devPlay(cards, u, legal, t); return d && d.action !== b; });
@@ -1495,9 +1495,9 @@
     if (rec && rec.plays + rec.quiz > 0) {
       var cell = function (k, ok, n, off) {
         var p = n ? Math.round(ok / n * 100) : null;
-        return '<div class="ss-cell"><b class="' + (p == null ? '' : p >= 90 ? 'good' : p >= 75 ? '' : 'bad') + '">' + (off ? 'off' : p == null ? '—' : p + '%') + '</b><span>' + k + '</span><small>' + (off ? 'index plays off' : ok + ' / ' + n) + '</small></div>';
+        return '<div class="ss-cell"><b class="' + (off || p == null ? '' : p >= 90 ? 'good' : p >= 75 ? '' : 'bad') + '">' + (off ? 'off' : p == null ? '—' : p + '%') + '</b><span>' + k + '</span><small>' + (off ? 'turned off' : ok + ' / ' + n) + '</small></div>';
       };
-      sum.innerHTML = cell('Count', rec.quizOk, rec.quiz) + cell('Plays', rec.playOk, rec.plays) + cell('Index plays', rec.idxOk, rec.idx, !settings.devs);
+      sum.innerHTML = cell('Count', rec.quizOk, rec.quiz) + cell('Bets', rec.betOk, rec.bet, !settings.betting) + cell('Plays', rec.playOk, rec.plays) + cell('Index plays', rec.idxOk, rec.idx, !settings.devs);
       sum.hidden = false; ov.classList.add('sum');
       lastMisses = rec.miss;
       rb.hidden = !rec.miss.length;
@@ -1675,6 +1675,7 @@
     stats.cats.bet[1]++;
     if (ok) stats.cats.bet[0]++;
     accPush('bet', stats.hands + 1, ok);
+    shoeRec.bet++; if (ok) shoeRec.betOk++;
     lastBetOk = ok;
     var u = function (n) { return n + (n === 1 ? ' unit' : ' units'); };
     if (!ok && settings.feedback !== 'off') setFeedback('bad', '✗', 'You bet <b>' + u(betUnits) + '</b>. True count was ' + fmtTC(tc) + ', so the ramp says <b>' + u(right) + '</b> (TC − 1, min 1, max ' + settings.spread + ').');
