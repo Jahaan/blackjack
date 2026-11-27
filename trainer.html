@@ -376,6 +376,22 @@
 
   /* Hand history */
   .hist-card { margin-top: 12px; }
+  .res-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--ink-soft); margin: 8px 0 12px; }
+  .res-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .res-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .res-legend b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .res-bar { display: flex; height: 14px; border-radius: 4px; overflow: hidden; background: var(--line); gap: 1px; }
+  .res-bar.big { height: 22px; }
+  .res-bar i { display: block; height: 100%; }
+  .o-bj { background: #1f7a49; } .o-win { background: var(--win); } .o-push { background: var(--push); opacity: .55; } .o-sur { background: #e9a39b; } .o-lose { background: var(--lose); }
+  .res-t { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .res-t th { text-align: right; font-weight: 600; color: var(--ink-soft); font-size: 11.5px; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+  .res-t td { text-align: right; padding: 6px; border-bottom: 1px solid var(--line); }
+  .res-t th:first-child, .res-t td:first-child { text-align: left; }
+  .res-t td.bar { width: 28%; min-width: 80px; }
+  .res-t .pos { color: var(--win); } .res-t .neg { color: var(--lose); }
+  .res-t small { display: block; white-space: nowrap; color: var(--ink-soft); font-size: 11px; }
+  @media (max-width: 560px) { .res-t .hide-s { display: none; } .res-t td.bar { width: 22%; } }
   .hist-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 10px; }
   .hist-sum .stat .v { font-size: 19px; }
   @media (max-width: 560px) { .hist-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -774,6 +790,10 @@
             <div class="hint"><b>Theo · perfect</b> = your bet × the value of the 3 dealt cards (your two + dealer's upcard) played perfectly, including the chance the dealer has blackjack. <b>Theo · your play</b> = the same minus what each misplay cost. Actual − your play is the luck of the draw. <b>Bet sizing</b> = (your bet − ramp bet) × your edge at that true count (measured from 600M simulated hands: about −0.52% at TC 0, rising ~0.55% per TC); negative means it cost you. Values come from a built-in blackjack calculator for these rules; it doesn't adjust playing values for the count.</div>
           </div>
         </details>
+        <details class="card review res-card" id="resCard">
+          <summary class="pad">Results <span id="resSub">won / lost / pushed by bet size</span></summary>
+          <div class="review-body" id="resBody"></div>
+        </details>
         <div class="controls-row">
           <button class="chip-btn" id="pauseBtn" type="button">Pause</button>
           <button class="chip-btn" id="shuffleBtn" type="button">New shoe</button>
@@ -1125,6 +1145,30 @@
   function accPush(kind, hand, ok) {
     stats.acc = stats.acc || { play: [], bet: [], quiz: [] };
     (stats.acc[kind] = stats.acc[kind] || []).push(Math.max(0, hand) * 2 + (ok ? 1 : 0));
+  }
+  // Round outcomes by starting bet: [rounds, blackjack, won, pushed, lost, surrendered, net units]; doubles: [n, won, pushed, lost]
+  function outcomeOf(h) {
+    var res = h.res || [];
+    if (res.indexOf('sur') >= 0) return 5;
+    if (res.length === 1 && res[0] === 'bj') return 1;
+    var sc = 0;
+    res.forEach(function (r, i) { var w = /×2/.test((h.you || [])[i] || '') ? 2 : 1; sc += (r === 'win' || r === 'bj') ? w : (r === 'lose' || r === 'bust') ? -w : 0; });
+    return sc > 0 ? 2 : sc < 0 ? 4 : 3;
+  }
+  function outcAdd(h) {
+    if (!h || !h.res || !h.res.length || !(h.bet > 0)) return;
+    var O = stats.outc = stats.outc || { byBet: {}, dbl: [0, 0, 0, 0] };
+    var row = O.byBet[h.bet] = O.byBet[h.bet] || [0, 0, 0, 0, 0, 0, 0];
+    row[0]++; row[outcomeOf(h)]++; row[6] = Math.round((row[6] + (h.actual || 0)) * 100) / 100;
+    h.res.forEach(function (r, i) {
+      if (!/×2/.test((h.you || [])[i] || '')) return;
+      O.dbl[0]++; O.dbl[r === 'win' ? 1 : r === 'push' ? 2 : 3]++;
+    });
+  }
+  if (!stats.outcSeeded) {                         // start from the saved hand history (last 1,000 hands)
+    stats.outc = { byBet: {}, dbl: [0, 0, 0, 0] };
+    (stats.handLog || []).forEach(outcAdd);
+    stats.outcSeeded = true; stats.outcFrom = (stats.handLog || []).length;
   }
   if (!stats.accSeeded) {
     stats.acc = stats.acc || { play: [], bet: [], quiz: [] };
@@ -1890,6 +1934,7 @@
       };
       stats.handLog = stats.handLog || [];
       stats.handLog.push(rec);
+      outcAdd(rec);
       if (stats.handLog.length > 1000) stats.handLog = stats.handLog.slice(-1000);
       stats.evHistory = stats.evHistory || [];
       while (stats.evHistory.length < stats.history.length - 1) stats.evHistory.unshift(null); // older hands had no EV
@@ -2175,6 +2220,33 @@
   var SHORT = { H: 'Hit', S: 'Stand', D: 'Double', P: 'Split', R: 'Surr', I: 'Ins', N: 'No ins' };
   var RES = { win: 'Win', lose: 'Lose', bust: 'Bust', push: 'Push', bj: 'BJ', sur: 'Surr' };
   function sgn(x, d) { var v = Math.round(x * Math.pow(10, d)) / Math.pow(10, d); return (v > 0 ? '+' : '') + v.toFixed(d); }
+  function renderResults() {
+    var body = document.getElementById('resBody'), O = stats.outc || { byBet: {}, dbl: [0, 0, 0, 0] };
+    var bets = Object.keys(O.byBet).map(Number).sort(function (a, b) { return a - b; });
+    var tot = [0, 0, 0, 0, 0, 0, 0];
+    bets.forEach(function (b) { O.byBet[b].forEach(function (v, i) { tot[i] += v; }); });
+    document.getElementById('resSub').textContent = tot[0] ? tot[0] + ' hands · won ' + Math.round((tot[1] + tot[2]) / tot[0] * 100) + '%' : 'won / lost / pushed by bet size';
+    if (!document.getElementById('resCard').open) return;
+    if (!tot[0]) { body.innerHTML = '<div class="empty">Play a few hands to see your results.</div>'; return; }
+    var SEG = [[1, 'o-bj', 'Blackjack'], [2, 'o-win', 'Won'], [3, 'o-push', 'Pushed'], [5, 'o-sur', 'Surrendered'], [4, 'o-lose', 'Lost']];
+    var pc = function (v, n) { return n ? Math.round(v / n * 1000) / 10 : 0; };
+    var bar = function (r, big) {
+      return '<div class="res-bar' + (big ? ' big' : '') + '" role="img" aria-label="' + SEG.map(function (sg) { return sg[2] + ' ' + pc(r[sg[0]], r[0]) + '%'; }).join(', ') + '">' +
+        SEG.map(function (sg) { return r[sg[0]] ? '<i class="' + sg[1] + '" style="flex:' + r[sg[0]] + '" title="' + sg[2] + ' ' + pc(r[sg[0]], r[0]) + '% (' + r[sg[0]] + ')"></i>' : ''; }).join('') + '</div>';
+    };
+    var sgn = function (v, d) { var z = fmtSigned(v, d); return '<span class="' + (v > 0 ? 'pos' : v < 0 ? 'neg' : '') + '">' + z + '</span>'; };
+    var row = function (label, r) {
+      return '<tr><td>' + label + '</td><td>' + r[0] + '</td><td class="bar">' + bar(r) + '</td><td>' + pc(r[1] + r[2], r[0]) + '%' + (r[1] ? ' <small>' + pc(r[1], r[0]) + '% BJ</small>' : '') + '</td><td>' + pc(r[4], r[0]) + '%</td><td class="hide-s">' + pc(r[3], r[0]) + '%</td><td class="hide-s">' + pc(r[5], r[0]) + '%</td><td>' + sgn(r[6], 1) + '</td><td class="hide-s">' + sgn(r[6] / r[0], 3) + '</td></tr>';
+    };
+    var h = bar(tot, true) + '<div class="res-legend">' + SEG.map(function (sg) { return '<span><i class="' + sg[1] + '"></i>' + sg[2] + ' <b>' + pc(tot[sg[0]], tot[0]) + '%</b> (' + tot[sg[0]] + ')</span>'; }).join('') + '</div>';
+    h += '<table class="res-t"><thead><tr><th>Bet</th><th>Hands</th><th></th><th>Won</th><th>Lost</th><th class="hide-s">Push</th><th class="hide-s">Surr.</th><th>Net</th><th class="hide-s">Per hand</th></tr></thead><tbody>' +
+      bets.map(function (b) { return row(b + 'u', O.byBet[b]); }).join('') + (bets.length > 1 ? row('<b>All</b>', tot) : '') + '</tbody></table>';
+    var d = O.dbl;
+    if (d[0]) h += '<p class="hint" style="margin-top:10px">Doubled hands: won <b>' + pc(d[1], d[0]) + '%</b>, pushed ' + pc(d[2], d[0]) + '%, lost ' + pc(d[3], d[0]) + '% (' + d[0] + ' doubles).</p>';
+    h += '<p class="hint">A hand counts once by its starting bet. Split hands count as won or lost by their combined result; net units include insurance. For reference, basic strategy wins about 42% of hands (incl. ~4.5% blackjacks), pushes about 8.5% and loses about 49% — you make it back on blackjacks paying 3:2 and doubles.' +
+      (stats.outcFrom ? ' Started from your saved hand history (last ' + stats.outcFrom + ' hands); every hand from now on is added.' : '') + '</p>';
+    body.innerHTML = h;
+  }
   function renderHistory() {
     var card = document.getElementById('histCard');
     var log = stats.handLog || [];
@@ -3162,6 +3234,9 @@
     modal.addEventListener('click', function (e) { if (e.target === modal) closeBig(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.classList.contains('on')) { e.stopPropagation(); closeBig(); } }, true);
     var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(renderUnits, 120); });
+    var rc = document.getElementById('resCard');
+    try { if (localStorage.getItem('trainer-res-open') === '1') rc.open = true; } catch (e) {}
+    rc.addEventListener('toggle', function () { try { localStorage.setItem('trainer-res-open', rc.open ? '1' : '0'); } catch (e) {} renderResults(); });
     var uc = document.getElementById('unitsCard');
     try { if (localStorage.getItem('trainer-units-open') === '1') uc.open = true; } catch (e) {}
     uc.addEventListener('toggle', function () {
@@ -3171,7 +3246,7 @@
   })();
 
   function renderStats() {
-    renderUnits(); renderTC(); renderAcc(); renderHistory();
+    renderUnits(); renderTC(); renderAcc(); renderHistory(); renderResults();
     document.getElementById('sAcc').textContent = pct(stats.correct, stats.decisions);
     var tmv = (stats.tm || []).slice(-50), tavg = tmv.length ? tmv.reduce(function (a, v) { return a + (v & 1023); }, 0) / tmv.length / 100 : null;
     document.getElementById('sAccSub').textContent = stats.correct + ' / ' + stats.decisions + ' decisions' + (tavg != null ? ' · ' + tavg.toFixed(1) + 's avg' : '');
